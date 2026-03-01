@@ -1,0 +1,304 @@
+{% extends 'base.html' %}
+{% block title %}Budget Overview{% endblock %}
+{% block page_title %}Budget Overview{% endblock %}
+{% block content %}<form method="get" id="filterForm" class="mb-4">
+    <div class="filter-bar" style="gap: 15px;">
+        <div class="filter-group" style="margin: 0; min-width: 150px;">
+            <input type="hidden" name="fy" id="filterFY" value="{{ fy_filter }}">
+            <div class="custom-dropdown" id="fyDropdown">
+                <div class="custom-dropdown__trigger" onclick="toggleDD('fyDropdown')">
+                    <span id="fyLabel">All Years</span>
+                    <svg class="custom-dropdown__arrow" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd"
+                            d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
+                            clip-rule="evenodd" />
+                    </svg>
+                </div>
+                <div class="custom-dropdown__menu">
+                    <div class="custom-dropdown__item" data-value="" data-name="All Years" onclick="pickFY(this)">
+                        <span class="custom-dropdown__dot dot-all"></span> All Years
+                    </div>
+                    {% for y in years %}
+                    <div class="custom-dropdown__item" data-value="{{ y }}" data-name="FY {{ y }}"
+                        onclick="pickFY(this)">
+                        <span class="custom-dropdown__dot dot-approved"></span> FY {{ y }}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <div class="filter-group" style="margin: 0; min-width: 150px;">
+            <input type="hidden" name="status" id="filterStatus" value="{{ status_filter }}">
+            <div class="custom-dropdown" id="statusDropdown">
+                <div class="custom-dropdown__trigger" onclick="toggleDD('statusDropdown')">
+                    <span id="statusLabel">All Statuses</span>
+                    <svg class="custom-dropdown__arrow" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd"
+                            d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
+                            clip-rule="evenodd" />
+                    </svg>
+                </div>
+                <div class="custom-dropdown__menu">
+                    <div class="custom-dropdown__item" data-value="" data-name="All Statuses"
+                        onclick="pickStatus(this)">
+                        <span class="custom-dropdown__dot dot-all"></span> All Statuses
+                    </div>
+                    <div class="custom-dropdown__item" data-value="Pending" data-name="Pending"
+                        onclick="pickStatus(this)"><span class="custom-dropdown__dot dot-pending"></span> Pending</div>
+                    <div class="custom-dropdown__item" data-value="Rejected" data-name="Rejected"
+                        onclick="pickStatus(this)"><span class="custom-dropdown__dot dot-rejected"></span> Rejected
+                    </div>
+                    <div class="custom-dropdown__item" data-value="Principal_Approved" data-name="Principal Approved"
+                        onclick="pickStatus(this)"><span class="custom-dropdown__dot dot-principal"></span> Principal
+                        Approved</div>
+                    <div class="custom-dropdown__item" data-value="CEO_Approved" data-name="Fully Approved"
+                        onclick="pickStatus(this)"><span class="custom-dropdown__dot dot-ceo"></span> Fully Approved
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary" style="padding: 8px 20px;">Apply</button>
+        {% if fy_filter or status_filter %}
+        <button type="button" class="btn btn-secondary" style="padding: 8px 20px;"
+            onclick="resetFilters()">Reset</button>
+        {% endif %}
+    </div>
+</form>
+
+{% for budget in budgets %}
+<div class="card mb-3">
+    <div class="section-header"
+        style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px;">
+        <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+            <h3 class="card-title" style="margin-bottom: 0;">{{ budget.department.name }}</h3>
+            <span class="text-muted text-sm" style="font-weight: 500;">FY {{ budget.financial_year }}</span>
+            <span class="badge badge-{{ budget.status|lower }}">{{ budget.status }}</span>
+        </div>
+        <div class="section-actions" style="display: flex; gap: 8px; align-items: center; margin-left: auto;">
+            <a href="{% url 'budget_detail' budget.id %}" class="btn btn-secondary btn-sm no-print"
+                title="View Full Report">
+                <span class="icon">📊</span> View Report
+            </a>
+            <a href="{% url 'allocate_sections' budget.id %}" class="btn btn-secondary btn-sm"
+                title="Edit Category Allocations">
+                Edit Allocations
+            </a>
+        </div>
+    </div>
+
+    {% for alloc in budget.allocations.all %}
+    {% if not forloop.last %}
+    <div class="overview-item" style="border-bottom: 1px solid var(--border); margin-bottom: 24px; padding-bottom: 24px;">
+    {% else %}
+    <div class="overview-item" style="margin-bottom: 8px;">
+    {% endif %}
+        <div class="flex-between mb-2">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <span class="fw-bold">{{ alloc.category.name }}</span>
+                {% if budget.status == 'CEO_Approved' and user.role in 'HOD,Principal,CEO' %}
+                <button type="button" class="btn btn-primary btn-sm" style="padding: 4px 12px; font-size: 0.75rem;"
+                    onclick="openExpenseModal('{{ alloc.id }}', '{{ alloc.category.name }}', '{{ alloc.remaining_budget }}')">
+                    💸 Log Expense
+                </button>
+                {% endif %}
+            </div>
+            <span class="text-sm">
+                <span class="text-success">₹{{ alloc.amount_allocated }}</span>
+                allocated · <span class="text-danger">₹{{ alloc.amount_spent }}</span> spent
+            </span>
+        </div>
+        {% if alloc.amount_allocated > 0 %}
+        {% widthratio alloc.amount_spent alloc.amount_allocated 100 as util_pct %}
+        <div class="progress-bar-wrap">
+            <div class="progress-bar-fill {% if alloc.amount_spent > alloc.amount_allocated %}danger{% endif %}"
+                data-width="{{ util_pct }}">
+            </div>
+        </div>
+        {% endif %}
+
+        {% with recent_expenses=alloc.expenses.all|slice:":3" %}
+        {% if recent_expenses %}
+        <details class="mt-2" style="cursor: pointer;">
+            <summary style="font-size: 0.8rem; color: var(--text-secondary); user-select: none;">
+                📋 Recent Transactions ({{ alloc.expenses.count }})
+            </summary>
+            <div style="margin-top: 8px; padding-left: 8px; border-left: 2px solid var(--border);">
+                {% for exp in recent_expenses %}
+                <div
+                    style="display: flex; justify-content: space-between; align-items: center; padding: 4px 0; font-size: 0.8rem;">
+                    <span style="color: var(--text-secondary);">{{ exp.date|date:"M d" }} — {{ exp.description|truncatewords:6 }}</span>
+                    <span class="text-danger fw-bold">₹{{ exp.amount }}</span>
+                </div>
+                {% endfor %}
+            </div>
+        </details>
+        {% endif %}
+        {% endwith %}
+    </div>
+    {% empty %}
+    <p class="text-muted mt-2">No sections allocated yet.</p>
+    {% endfor %}
+</div>
+{% empty %}
+<div class="card">
+    <p class="text-muted text-center p-4">No budgets found.</p>
+</div>
+{% endfor %}
+
+<!-- Add Expense Modal -->
+<div class="modal-overlay" id="expenseModal">
+    <div class="modal-card">
+        <div class="modal-header">
+            <div class="modal-title">📉 Log Expense</div>
+        </div>
+        <div class="modal-body">
+            <p style="margin-bottom: 16px;">
+                Category: <strong class="text-accent" id="expCategoryName"></strong><br>
+                Remaining Budget: <strong class="text-success" id="expRemaining"></strong>
+            </p>
+            <form method="post" id="expenseForm">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label>Expense Amount (₹)</label>
+                    <div class="amount-stepper">
+                        <button type="button" class="stepper-btn minus" onclick="stepExpense(-1)">−</button>
+                        <input type="number" step="1" name="amount" id="expenseAmountInput" class="form-control"
+                            value="0" min="0" required>
+                        <button type="button" class="stepper-btn plus" onclick="stepExpense(1)">+</button>
+                    </div>
+                    <div style="display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap;">
+                        <button type="button" class="btn btn-secondary btn-sm"
+                            style="font-size: 0.75rem; padding: 3px 10px;" onclick="setExpenseAmount(100)">₹100</button>
+                        <button type="button" class="btn btn-secondary btn-sm"
+                            style="font-size: 0.75rem; padding: 3px 10px;" onclick="setExpenseAmount(500)">₹500</button>
+                        <button type="button" class="btn btn-secondary btn-sm"
+                            style="font-size: 0.75rem; padding: 3px 10px;"
+                            onclick="setExpenseAmount(1000)">₹1,000</button>
+                        <button type="button" class="btn btn-secondary btn-sm"
+                            style="font-size: 0.75rem; padding: 3px 10px;"
+                            onclick="setExpenseAmount(5000)">₹5,000</button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <input type="text" name="description" class="form-control" placeholder="e.g. Printer Cartridges"
+                        required>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeExpenseModal()">Cancel</button>
+            <button type="button" class="btn btn-primary" onclick="document.getElementById('expenseForm').requestSubmit()">Log
+                Expense</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    function toggleDD(id) {
+        document.querySelectorAll('.custom-dropdown').forEach(function (dd) {
+            if (dd.id !== id) dd.classList.remove('open');
+        });
+        document.getElementById(id).classList.toggle('open');
+    }
+
+    document.addEventListener('click', function (e) {
+        document.querySelectorAll('.custom-dropdown').forEach(function (dd) {
+            if (!dd.contains(e.target)) dd.classList.remove('open');
+        });
+    });
+
+    function pickFY(el) {
+        var val = el.getAttribute('data-value');
+        var name = el.getAttribute('data-name');
+        document.getElementById('filterFY').value = val;
+        document.getElementById('fyLabel').textContent = name;
+        document.getElementById('fyDropdown').classList.remove('open');
+        document.querySelectorAll('#fyDropdown .custom-dropdown__item').forEach(function (item) {
+            item.classList.toggle('active', item === el);
+        });
+    }
+
+    function pickStatus(el) {
+        var val = el.getAttribute('data-value');
+        var name = el.getAttribute('data-name');
+        document.getElementById('filterStatus').value = val;
+        document.getElementById('statusLabel').textContent = name;
+        document.getElementById('statusDropdown').classList.remove('open');
+        document.querySelectorAll('#statusDropdown .custom-dropdown__item').forEach(function (item) {
+            item.classList.toggle('active', item === el);
+        });
+    }
+
+    function resetFilters() {
+        document.getElementById('filterFY').value = '';
+        document.getElementById('filterStatus').value = '';
+        document.getElementById('filterForm').submit();
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        var fyVal = document.getElementById('filterFY').value;
+        var statusVal = document.getElementById('filterStatus').value;
+
+        if (fyVal) {
+            var fyItem = document.querySelector('#fyDropdown .custom-dropdown__item[data-value="' + fyVal + '"]');
+            if (fyItem) {
+                document.getElementById('fyLabel').textContent = fyItem.getAttribute('data-name');
+                fyItem.classList.add('active');
+            }
+        }
+
+        if (statusVal) {
+            var statusItem = document.querySelector('#statusDropdown .custom-dropdown__item[data-value="' + statusVal + '"]');
+            if (statusItem) {
+                document.getElementById('statusLabel').textContent = statusItem.getAttribute('data-name');
+                statusItem.classList.add('active');
+            }
+        }
+    });
+
+    // --- Expense Modal Scripts ---
+    var currentExpLimit = 0;
+
+    function openExpenseModal(allocId, catName, remaining) {
+        document.getElementById('expCategoryName').textContent = catName;
+        document.getElementById('expRemaining').textContent = '₹' + remaining;
+        currentExpLimit = parseFloat(remaining) || 0;
+
+        document.getElementById('expenseAmountInput').value = 0;
+        document.getElementById('expenseForm').reset();
+
+        document.getElementById('expenseForm').action = '/budget/log-expense/' + allocId + '/';
+        document.getElementById('expenseModal').classList.add('show');
+    }
+
+    function closeExpenseModal() {
+        document.getElementById('expenseModal').classList.remove('show');
+    }
+
+    function stepExpense(dir) {
+        var input = document.getElementById('expenseAmountInput');
+        var val = parseFloat(input.value) || 0;
+        var step = 100; // Stepping by 100 
+        var newVal = val + (dir * step);
+
+        if (newVal < 0) newVal = 0;
+        if (newVal > currentExpLimit) newVal = currentExpLimit;
+
+        input.value = newVal;
+    }
+
+    function setExpenseAmount(amount) {
+        var input = document.getElementById('expenseAmountInput');
+        if (amount > currentExpLimit) amount = currentExpLimit;
+        input.value = amount;
+    }
+
+    // Close modal on overlay click
+    document.getElementById('expenseModal').addEventListener('click', function (e) {
+        if (e.target === this) closeExpenseModal();
+    });
+</script>
+{% endblock %}

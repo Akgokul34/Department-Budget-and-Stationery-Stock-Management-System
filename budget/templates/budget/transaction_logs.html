@@ -1,0 +1,236 @@
+{% extends 'base.html' %}
+{% block title %}Transaction Logs{% endblock %}
+{% block page_title %}Expense Audit Logs{% endblock %}
+{% block content %}
+<div class="card">
+    <div class="section-header">
+        <h2 class="mb-0">Transaction History</h2>
+    </div>
+
+    <form method="get" id="filterForm">
+        <div class="filter-bar">
+            <div class="filter-bar__search">
+                <span class="filter-bar__search-icon">🔍</span>
+                <input type="text" name="q" value="{{ query }}" placeholder="Search transactions...">
+            </div>
+            <button type="button" class="filter-bar__toggle" id="filterToggle" onclick="toggleFilterPanel()">
+                🎛️ Filters
+            </button>
+        </div>
+
+        <!-- Active Filter Chips -->
+        <div class="filter-chips" id="filterChips"></div>
+
+        <!-- Collapsible Filter Panel -->
+        <div class="filter-panel" id="filterPanel">
+            <div class="filter-grid">
+                <div class="filter-group">
+                    <label class="filter-group__label">Department</label>
+                    <input type="hidden" name="department" id="filterDept" value="{{ dept_filter }}">
+                    <div class="custom-dropdown" id="deptDropdown">
+                        <div class="custom-dropdown__trigger" onclick="toggleDD('deptDropdown')">
+                            <span id="deptLabel">All Departments</span>
+                            <svg class="custom-dropdown__arrow" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd"
+                                    d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
+                                    clip-rule="evenodd" />
+                            </svg>
+                        </div>
+                        <div class="custom-dropdown__menu">
+                            <div class="custom-dropdown__item" data-value="" data-name="" onclick="pickDept(this)">
+                                <span class="custom-dropdown__dot dot-all"></span> All Departments
+                            </div>
+                            {% for dept in departments %}
+                            <div class="custom-dropdown__item" data-value="{{ dept.id }}" data-name="{{ dept.name }}"
+                                onclick="pickDept(this)">
+                                <span class="custom-dropdown__dot dot-hod"></span> {{ dept.name }}
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                <div class="filter-group">
+                    <label class="filter-group__label">From</label>
+                    <input type="date" name="date_from" id="filterDateFrom" class="filter-date-input"
+                        value="{{ date_from }}">
+                </div>
+                <div class="filter-group">
+                    <label class="filter-group__label">To</label>
+                    <input type="date" name="date_to" id="filterDateTo" class="filter-date-input" value="{{ date_to }}">
+                </div>
+                <div class="filter-panel__actions">
+                    <button type="submit" class="filter-panel__apply">Apply Filters</button>
+                    <button type="button" class="filter-panel__reset" onclick="resetFilters()">Reset</button>
+                </div>
+            </div>
+        </div>
+    </form>
+
+    <div class="table-wrap">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Department</th>
+                    <th>FY</th>
+                    <th>Category</th>
+                    <th>Amount</th>
+                    <th>Description</th>
+                    <th>Logged By</th>
+                    <th class="no-print">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for t in page_obj %}
+                <tr>
+                    <td>{{ t.date|date:"M d, Y" }}</td>
+                    <td>{{ t.allocation.department_budget.department.name }}</td>
+                    <td>{{ t.allocation.department_budget.financial_year }}</td>
+                    <td class="fw-bold">{{ t.allocation.category.name }}</td>
+                    <td class="text-danger fw-bold">₹{{ t.amount }}</td>
+                    <td>{{ t.description }}</td>
+                    <td>{{ t.recorded_by.username }}</td>
+                    <td class="no-print">
+                        <a href="{% url 'transaction_detail' t.id %}" class="btn btn-secondary btn-sm"
+                            title="View Detail">
+                            <span class="icon">👁️</span>
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr class="empty-row">
+                    <td colspan="8">No transactions recorded yet.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination Include -->
+    {% include 'core/pagination.html' with page_obj=page_obj %}
+</div>
+
+<script>
+    function toggleFilterPanel() {
+        document.getElementById('filterPanel').classList.toggle('open');
+        document.getElementById('filterToggle').classList.toggle('active');
+    }
+
+    function toggleDD(id) {
+        document.querySelectorAll('.custom-dropdown').forEach(function (dd) {
+            if (dd.id !== id) dd.classList.remove('open');
+        });
+        document.getElementById(id).classList.toggle('open');
+    }
+
+    document.addEventListener('click', function (e) {
+        document.querySelectorAll('.custom-dropdown').forEach(function (dd) {
+            if (!dd.contains(e.target)) dd.classList.remove('open');
+        });
+    });
+
+    function pickDept(el) {
+        var val = el.getAttribute('data-value');
+        var name = el.getAttribute('data-name');
+        document.getElementById('filterDept').value = val;
+        document.getElementById('deptLabel').textContent = val ? name : 'All Departments';
+        document.getElementById('deptDropdown').classList.remove('open');
+        document.querySelectorAll('#deptDropdown .custom-dropdown__item').forEach(function (item) {
+            item.classList.toggle('active', item.getAttribute('data-value') === val);
+        });
+    }
+
+    function resetFilters() {
+        document.getElementById('filterDept').value = '';
+        document.getElementById('filterDateFrom').value = '';
+        document.getElementById('filterDateTo').value = '';
+        document.getElementById('deptLabel').textContent = 'All Departments';
+        document.querySelector('.filter-bar__search input').value = '';
+        document.getElementById('filterForm').submit();
+    }
+
+    function buildChips() {
+        var chips = document.getElementById('filterChips');
+        chips.innerHTML = '';
+        var activeCount = 0;
+
+        var deptVal = document.getElementById('filterDept').value;
+        if (deptVal) {
+            var deptName = document.getElementById('deptLabel').textContent;
+            chips.innerHTML += '<span class="filter-chip"><span class="filter-chip__label">Dept:</span> ' +
+                deptName +
+                '<button type="button" class="filter-chip__remove" onclick="removeFilter(\'department\')">×</button></span>';
+            activeCount++;
+        }
+
+        var searchVal = document.querySelector('.filter-bar__search input').value;
+        if (searchVal) {
+            chips.innerHTML += '<span class="filter-chip"><span class="filter-chip__label">Search:</span> ' +
+                searchVal +
+                '<button type="button" class="filter-chip__remove" onclick="removeFilter(\'q\')">×</button></span>';
+            activeCount++;
+        }
+
+        var dateFrom = document.getElementById('filterDateFrom').value;
+        if (dateFrom) {
+            chips.innerHTML += '<span class="filter-chip"><span class="filter-chip__label">From:</span> ' +
+                dateFrom +
+                '<button type="button" class="filter-chip__remove" onclick="removeFilter(\'date_from\')">×</button></span>';
+            activeCount++;
+        }
+
+        var dateTo = document.getElementById('filterDateTo').value;
+        if (dateTo) {
+            chips.innerHTML += '<span class="filter-chip"><span class="filter-chip__label">To:</span> ' +
+                dateTo +
+                '<button type="button" class="filter-chip__remove" onclick="removeFilter(\'date_to\')">×</button></span>';
+            activeCount++;
+        }
+
+        if (activeCount > 1) {
+            chips.innerHTML += '<button type="button" class="filter-chips__clear-all" onclick="resetFilters()">Clear All</button>';
+        }
+
+        var toggle = document.getElementById('filterToggle');
+        var existingBadge = toggle.querySelector('.filter-count-badge');
+        if (existingBadge) existingBadge.remove();
+        if (activeCount > 0) {
+            toggle.insertAdjacentHTML('beforeend', '<span class="filter-count-badge">' + activeCount + '</span>');
+        }
+    }
+
+    function removeFilter(name) {
+        if (name === 'q') {
+            document.querySelector('.filter-bar__search input').value = '';
+        } else if (name === 'department') {
+            pickDept(document.querySelector('#deptDropdown .custom-dropdown__item[data-value=""]'));
+        } else if (name === 'date_from') {
+            document.getElementById('filterDateFrom').value = '';
+        } else if (name === 'date_to') {
+            document.getElementById('filterDateTo').value = '';
+        }
+        document.getElementById('filterForm').submit();
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        var deptVal = document.getElementById('filterDept').value;
+        var dateFrom = document.getElementById('filterDateFrom').value;
+        var dateTo = document.getElementById('filterDateTo').value;
+
+        if (deptVal) {
+            var deptItem = document.querySelector('#deptDropdown .custom-dropdown__item[data-value="' + deptVal + '"]');
+            if (deptItem) {
+                document.getElementById('deptLabel').textContent = deptItem.getAttribute('data-name');
+                deptItem.classList.add('active');
+            }
+        }
+
+        buildChips();
+
+        if (deptVal || dateFrom || dateTo) {
+            document.getElementById('filterPanel').classList.add('open');
+            document.getElementById('filterToggle').classList.add('active');
+        }
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,425 @@
+{% extends 'base.html' %}
+{% block title %}Manage Users{% endblock %}
+{% block page_title %}Manage Users{% endblock %}
+{% block content %}
+<div class="card">
+    <div class="split-layout">
+        <!-- Create Form -->
+        <div class="split-panel-sm">
+            <h3 class="section-subtitle">Create New User</h3>
+            <form method="post">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label>Username</label>
+                    <input type="text" name="username" required class="form-control" placeholder="e.g. john_doe">
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <div class="password-wrapper">
+                        <input type="password" name="password" required class="form-control" placeholder="••••••••">
+                        <button type="button" class="password-toggle" onclick="togglePasswordVisibility(this)"
+                            title="Show password">👁️‍🗨️</button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Confirm Password</label>
+                    <div class="password-wrapper">
+                        <input type="password" name="confirm_password" required class="form-control"
+                            placeholder="••••••••">
+                        <button type="button" class="password-toggle" onclick="togglePasswordVisibility(this)"
+                            title="Show password">👁️‍🗨️</button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Email (optional)</label>
+                    <input type="email" name="email" class="form-control" placeholder="john@example.com">
+                </div>
+                <div class="form-group">
+                    <label>Role</label>
+                    <input type="hidden" name="role" id="createRole" value="Staff" required>
+                    <div class="custom-dropdown" id="createRoleDropdown">
+                        <div class="custom-dropdown__trigger" onclick="toggleDD('createRoleDropdown')">
+                            <span id="createRoleLabel">Staff</span>
+                            <svg class="custom-dropdown__arrow" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd"
+                                    d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
+                                    clip-rule="evenodd" />
+                            </svg>
+                        </div>
+                        <div class="custom-dropdown__menu">
+                            <div class="custom-dropdown__item active" data-value="Staff" data-name="Staff"
+                                onclick="pickCreateRole(this)"><span class="custom-dropdown__dot dot-pending"></span>
+                                Staff</div>
+                            <div class="custom-dropdown__item" data-value="HOD" data-name="HOD"
+                                onclick="pickCreateRole(this)"><span class="custom-dropdown__dot dot-hod"></span> HOD
+                            </div>
+                            <div class="custom-dropdown__item" data-value="Principal" data-name="Principal"
+                                onclick="pickCreateRole(this)"><span class="custom-dropdown__dot dot-principal"></span>
+                                Principal</div>
+                            <div class="custom-dropdown__item" data-value="CEO" data-name="CEO"
+                                onclick="pickCreateRole(this)"><span class="custom-dropdown__dot dot-ceo"></span> CEO
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Department</label>
+                    <input type="hidden" name="department" id="createDept" value="">
+                    <div class="custom-dropdown" id="createDeptDropdown">
+                        <div class="custom-dropdown__trigger" onclick="toggleDD('createDeptDropdown')">
+                            <span id="createDeptLabel">-- None --</span>
+                            <svg class="custom-dropdown__arrow" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd"
+                                    d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
+                                    clip-rule="evenodd" />
+                            </svg>
+                        </div>
+                        <div class="custom-dropdown__menu">
+                            <div class="custom-dropdown__item active" data-value="" data-name="-- None --"
+                                onclick="pickCreateDept(this)">
+                                <span class="custom-dropdown__dot dot-all"></span> -- None --
+                            </div>
+                            {% for d in departments %}
+                            <div class="custom-dropdown__item" data-value="{{ d.id }}" data-name="{{ d.name }}"
+                                onclick="pickCreateDept(this)">
+                                <span class="custom-dropdown__dot dot-hod"></span> {{ d.name }}
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">Create User</button>
+            </form>
+        </div>
+
+        <!-- Users List -->
+        <div class="split-panel-lg">
+            <h3 class="section-subtitle mb-2">System Users</h3>
+            <form method="get" id="filterForm" class="mb-3">
+                <div class="filter-bar">
+                    <div class="filter-bar__search">
+                        <span class="filter-bar__search-icon">🔍</span>
+                        <input type="text" name="q" value="{{ query }}" placeholder="Search users...">
+                    </div>
+                    <button type="button" class="filter-bar__toggle" id="filterToggle" onclick="toggleFilterPanel()">
+                        🎛️ Filters
+                    </button>
+                </div>
+
+                <div class="filter-chips" id="filterChips"></div>
+
+                <div class="filter-panel" id="filterPanel">
+                    <div class="filter-grid">
+                        <div class="filter-group">
+                            <label class="filter-group__label">Role</label>
+                            <input type="hidden" name="role" id="filterRole" value="{{ role_filter }}">
+                            <div class="custom-dropdown" id="roleDropdown">
+                                <div class="custom-dropdown__trigger" onclick="toggleDD('roleDropdown')">
+                                    <span id="roleLabel">All Roles</span>
+                                    <svg class="custom-dropdown__arrow" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fill-rule="evenodd"
+                                            d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
+                                            clip-rule="evenodd" />
+                                    </svg>
+                                </div>
+                                <div class="custom-dropdown__menu">
+                                    <div class="custom-dropdown__item" data-value="" data-name="All Roles"
+                                        onclick="pickRole(this)">
+                                        <span class="custom-dropdown__dot dot-all"></span> All Roles
+                                    </div>
+                                    <div class="custom-dropdown__item" data-value="Staff" data-name="Staff"
+                                        onclick="pickRole(this)"><span class="custom-dropdown__dot dot-pending"></span>
+                                        Staff</div>
+                                    <div class="custom-dropdown__item" data-value="HOD" data-name="HOD"
+                                        onclick="pickRole(this)"><span class="custom-dropdown__dot dot-hod"></span> HOD
+                                    </div>
+                                    <div class="custom-dropdown__item" data-value="Principal" data-name="Principal"
+                                        onclick="pickRole(this)"><span
+                                            class="custom-dropdown__dot dot-principal"></span> Principal</div>
+                                    <div class="custom-dropdown__item" data-value="CEO" data-name="CEO"
+                                        onclick="pickRole(this)"><span class="custom-dropdown__dot dot-ceo"></span> CEO
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="filter-group">
+                            <label class="filter-group__label">Department</label>
+                            <input type="hidden" name="department" id="filterDept" value="{{ dept_filter }}">
+                            <div class="custom-dropdown" id="deptDropdown">
+                                <div class="custom-dropdown__trigger" onclick="toggleDD('deptDropdown')">
+                                    <span id="deptLabel">All Departments</span>
+                                    <svg class="custom-dropdown__arrow" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fill-rule="evenodd"
+                                            d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
+                                            clip-rule="evenodd" />
+                                    </svg>
+                                </div>
+                                <div class="custom-dropdown__menu">
+                                    <div class="custom-dropdown__item" data-value="" data-name="All Departments"
+                                        onclick="pickDept(this)">
+                                        <span class="custom-dropdown__dot dot-all"></span> All Departments
+                                    </div>
+                                    {% for dept in departments %}
+                                    <div class="custom-dropdown__item" data-value="{{ dept.id }}"
+                                        data-name="{{ dept.name }}" onclick="pickDept(this)">
+                                        <span class="custom-dropdown__dot dot-hod"></span> {{ dept.name }}
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="filter-panel__actions" style="grid-column: 1 / -1; justify-content: flex-end;">
+                            <button type="submit" class="filter-panel__apply">Apply Filters</button>
+                            <button type="button" class="filter-panel__reset" onclick="resetFilters()">Reset</button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+            <div class="table-wrap">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Username</th>
+                            <th>Role</th>
+                            <th>Department</th>
+                            <th class="text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for u in page_obj %}
+                        <tr>
+                            <td class="fw-bold">{{ u.username }}</td>
+                            <td><span class="badge badge-approved">{{ u.role }}</span></td>
+                            <td>{{ u.department.name|default:"—" }}</td>
+                            <td class="text-center">
+                                <button type="button" class="btn btn-secondary btn-sm"
+                                    onclick="openResetModal('{{ u.id }}', '{{ u.username }}')">
+                                    🔑 Reset
+                                </button>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr class="empty-row">
+                            <td colspan="4">No users in the system.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination Include -->
+            {% include 'core/pagination.html' with page_obj=page_obj %}
+        </div>
+    </div>
+</div>
+
+<!-- Reset Password Modal -->
+<div class="modal-overlay" id="resetModal">
+    <div class="modal-card">
+        <div class="modal-header">
+            <h3 class="modal-title">Reset Password</h3>
+            <p class="text-muted text-sm" id="resetUserLabel">for user: username</p>
+        </div>
+        <form id="resetForm" method="post" action="">
+            {% csrf_token %}
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>New Password</label>
+                    <div class="password-wrapper">
+                        <input type="password" name="password" required class="form-control" placeholder="••••••••">
+                        <button type="button" class="password-toggle" onclick="togglePasswordVisibility(this)"
+                            title="Show password">👁️‍🗨️</button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Confirm New Password</label>
+                    <div class="password-wrapper">
+                        <input type="password" name="confirm_password" required class="form-control"
+                            placeholder="••••••••">
+                        <button type="button" class="password-toggle" onclick="togglePasswordVisibility(this)"
+                            title="Show password">👁️‍🗨️</button>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeResetModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save New Password</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function toggleFilterPanel() {
+        document.getElementById('filterPanel').classList.toggle('open');
+        document.getElementById('filterToggle').classList.toggle('active');
+    }
+
+    function toggleDD(id) {
+        document.querySelectorAll('.custom-dropdown').forEach(function (dd) {
+            if (dd.id !== id) dd.classList.remove('open');
+        });
+        document.getElementById(id).classList.toggle('open');
+    }
+
+    document.addEventListener('click', function (e) {
+        document.querySelectorAll('.custom-dropdown').forEach(function (dd) {
+            if (!dd.contains(e.target)) dd.classList.remove('open');
+        });
+    });
+
+    function pickRole(el) {
+        var val = el.getAttribute('data-value');
+        var name = el.getAttribute('data-name');
+        document.getElementById('filterRole').value = val;
+        document.getElementById('roleLabel').textContent = name;
+        document.getElementById('roleDropdown').classList.remove('open');
+        document.querySelectorAll('#roleDropdown .custom-dropdown__item').forEach(function (item) {
+            item.classList.toggle('active', item.getAttribute('data-value') === val);
+        });
+    }
+
+    function pickDept(el) {
+        var val = el.getAttribute('data-value');
+        var name = el.getAttribute('data-name');
+        document.getElementById('filterDept').value = val;
+        document.getElementById('deptLabel').textContent = name;
+        document.getElementById('deptDropdown').classList.remove('open');
+        document.querySelectorAll('#deptDropdown .custom-dropdown__item').forEach(function (item) {
+            item.classList.toggle('active', item.getAttribute('data-value') === val);
+        });
+    }
+
+    function pickCreateRole(el) {
+        var val = el.getAttribute('data-value');
+        var name = el.getAttribute('data-name');
+        document.getElementById('createRole').value = val;
+        document.getElementById('createRoleLabel').textContent = name;
+        document.getElementById('createRoleDropdown').classList.remove('open');
+        document.querySelectorAll('#createRoleDropdown .custom-dropdown__item').forEach(function (item) {
+            item.classList.toggle('active', item.getAttribute('data-value') === val);
+        });
+    }
+
+    function pickCreateDept(el) {
+        var val = el.getAttribute('data-value');
+        var name = el.getAttribute('data-name');
+        document.getElementById('createDept').value = val;
+        document.getElementById('createDeptLabel').textContent = name;
+        document.getElementById('createDeptDropdown').classList.remove('open');
+        document.querySelectorAll('#createDeptDropdown .custom-dropdown__item').forEach(function (item) {
+            item.classList.toggle('active', item.getAttribute('data-value') === val);
+        });
+    }
+
+    function resetFilters() {
+        document.getElementById('filterRole').value = '';
+        document.getElementById('filterDept').value = '';
+        document.getElementById('roleLabel').textContent = 'All Roles';
+        document.getElementById('deptLabel').textContent = 'All Departments';
+        document.querySelector('.filter-bar__search input').value = '';
+        document.getElementById('filterForm').submit();
+    }
+
+    function buildChips() {
+        var chips = document.getElementById('filterChips');
+        chips.innerHTML = '';
+        var activeCount = 0;
+
+        var roleVal = document.getElementById('filterRole').value;
+        if (roleVal) {
+            var roleName = document.getElementById('roleLabel').textContent;
+            chips.innerHTML += '<span class="filter-chip"><span class="filter-chip__label">Role:</span> ' +
+                roleName +
+                '<button type="button" class="filter-chip__remove" onclick="removeFilter(\'role\')">×</button></span>';
+            activeCount++;
+        }
+
+        var deptVal = document.getElementById('filterDept').value;
+        if (deptVal) {
+            var deptName = document.getElementById('deptLabel').textContent;
+            chips.innerHTML += '<span class="filter-chip"><span class="filter-chip__label">Dept:</span> ' +
+                deptName +
+                '<button type="button" class="filter-chip__remove" onclick="removeFilter(\'department\')">×</button></span>';
+            activeCount++;
+        }
+
+        var searchVal = document.querySelector('.filter-bar__search input').value;
+        if (searchVal) {
+            chips.innerHTML += '<span class="filter-chip"><span class="filter-chip__label">Search:</span> ' +
+                searchVal +
+                '<button type="button" class="filter-chip__remove" onclick="removeFilter(\'q\')">×</button></span>';
+            activeCount++;
+        }
+
+        if (activeCount > 1) {
+            chips.innerHTML += '<button type="button" class="filter-chips__clear-all" onclick="resetFilters()">Clear All</button>';
+        }
+
+        var toggle = document.getElementById('filterToggle');
+        var existingBadge = toggle.querySelector('.filter-count-badge');
+        if (existingBadge) existingBadge.remove();
+        if (activeCount > 0) {
+            toggle.insertAdjacentHTML('beforeend', '<span class="filter-count-badge">' + activeCount + '</span>');
+        }
+    }
+
+    function removeFilter(name) {
+        if (name === 'q') {
+            document.querySelector('.filter-bar__search input').value = '';
+        } else if (name === 'role') {
+            pickRole(document.querySelector('#roleDropdown .custom-dropdown__item[data-value=""]'));
+        } else if (name === 'department') {
+            pickDept(document.querySelector('#deptDropdown .custom-dropdown__item[data-value=""]'));
+        }
+        document.getElementById('filterForm').submit();
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        var roleVal = document.getElementById('filterRole').value;
+        var deptVal = document.getElementById('filterDept').value;
+
+        if (roleVal) {
+            var roleItem = document.querySelector('#roleDropdown .custom-dropdown__item[data-value="' + roleVal + '"]');
+            if (roleItem) {
+                document.getElementById('roleLabel').textContent = roleItem.getAttribute('data-name');
+                roleItem.classList.add('active');
+            }
+        }
+
+        if (deptVal) {
+            var deptItem = document.querySelector('#deptDropdown .custom-dropdown__item[data-value="' + deptVal + '"]');
+            if (deptItem) {
+                document.getElementById('deptLabel').textContent = deptItem.getAttribute('data-name');
+                deptItem.classList.add('active');
+            }
+        }
+
+        buildChips();
+
+        if (role_filter || dept_filter) {
+            document.getElementById('filterPanel').classList.add('open');
+            document.getElementById('filterToggle').classList.add('active');
+        }
+    });
+
+    function openResetModal(userId, username) {
+        var modal = document.getElementById('resetModal');
+        var form = document.getElementById('resetForm');
+        var label = document.getElementById('resetUserLabel');
+
+        form.action = "/manage/users/" + userId + "/reset/";
+        label.textContent = "for user: " + username;
+        modal.classList.add('show');
+    }
+
+    function closeResetModal() {
+        document.getElementById('resetModal').classList.remove('show');
+    }
+
+    // Close modal on escape key
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') closeResetModal();
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,518 @@
+{% extends 'base.html' %}
+{% block title %}Approvals{% endblock %}
+{% block page_title %}Pending Approvals{% endblock %}
+{% block content %}
+
+<div class="card">
+    <!-- Tab Navigation -->
+    <div class="approval-tabs">
+        <button class="approval-tabs__tab active" onclick="switchTab('stationery', this)">
+            <span class="tab-icon">📦</span> Stationery Requests
+            <span class="tab-count">{{ page_obj.paginator.count }}</span>
+        </button>
+        {% if user.role == 'Principal' or user.role == 'CEO' %}
+        <button class="approval-tabs__tab" onclick="switchTab('budget', this)">
+            <span class="tab-icon">💰</span> Budget Requests
+            <span class="tab-count">{{ budget_requests|length }}</span>
+        </button>
+        {% endif %}
+    </div>
+
+    <!-- ==================== TAB 1: Stationery Requests ==================== -->
+    <div id="tab-stationery" class="tab-panel active">
+
+        <!-- Filter Bar: Search + Filters Toggle -->
+        <form method="get" id="filterForm">
+            <div class="filter-bar">
+                <div class="filter-bar__search">
+                    <span class="filter-bar__search-icon">🔍</span>
+                    <input type="text" name="q" value="{{ search_query }}" placeholder="Search by requester or item...">
+                </div>
+                <button type="button" class="filter-bar__toggle" id="filterToggle" onclick="toggleFilterPanel()">
+                    🎛️ Filters
+                </button>
+            </div>
+
+            <!-- Active Filter Chips -->
+            <div class="filter-chips" id="filterChips"></div>
+
+            <!-- Collapsible Filter Panel -->
+            <div class="filter-panel" id="filterPanel">
+                <div class="filter-grid">
+                    <div class="filter-group">
+                        <label class="filter-group__label">Status</label>
+                        <input type="hidden" name="status" id="filterStatus" value="{{ status_filter }}">
+                        <div class="custom-dropdown" id="statusDropdown">
+                            <div class="custom-dropdown__trigger" onclick="toggleDD('statusDropdown')">
+                                <span id="statusLabel">All Statuses</span>
+                                <svg class="custom-dropdown__arrow" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd"
+                                        d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
+                                        clip-rule="evenodd" />
+                                </svg>
+                            </div>
+                            <div class="custom-dropdown__menu">
+                                <div class="custom-dropdown__item" data-value="" onclick="pickStatus(this)">
+                                    <span class="custom-dropdown__dot dot-all"></span> All Statuses
+                                </div>
+                                <div class="custom-dropdown__item" data-value="Pending" onclick="pickStatus(this)">
+                                    <span class="custom-dropdown__dot dot-pending"></span> Pending
+                                </div>
+                                <div class="custom-dropdown__item" data-value="HOD_Approved" onclick="pickStatus(this)">
+                                    <span class="custom-dropdown__dot dot-hod"></span> HOD Approved
+                                </div>
+                                <div class="custom-dropdown__item" data-value="Principal_Approved"
+                                    onclick="pickStatus(this)">
+                                    <span class="custom-dropdown__dot dot-principal"></span> Principal Approved
+                                </div>
+                                <div class="custom-dropdown__item" data-value="CEO_Approved" onclick="pickStatus(this)">
+                                    <span class="custom-dropdown__dot dot-ceo"></span> CEO Approved
+                                </div>
+                                <div class="custom-dropdown__item" data-value="Rejected" onclick="pickStatus(this)">
+                                    <span class="custom-dropdown__dot dot-rejected"></span> Rejected
+                                </div>
+                                <div class="custom-dropdown__item" data-value="Issued" onclick="pickStatus(this)">
+                                    <span class="custom-dropdown__dot dot-issued"></span> Issued
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="filter-group">
+                        <label class="filter-group__label">Department</label>
+                        <input type="hidden" name="department" id="filterDept" value="{{ dept_filter }}">
+                        <div class="custom-dropdown" id="deptDropdown">
+                            <div class="custom-dropdown__trigger" onclick="toggleDD('deptDropdown')">
+                                <span id="deptLabel">All Departments</span>
+                                <svg class="custom-dropdown__arrow" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd"
+                                        d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
+                                        clip-rule="evenodd" />
+                                </svg>
+                            </div>
+                            <div class="custom-dropdown__menu">
+                                <div class="custom-dropdown__item" data-value="" onclick="pickDept(this)">
+                                    <span class="custom-dropdown__dot dot-all"></span> All Departments
+                                </div>
+                                {% for dept in departments %}
+                                <div class="custom-dropdown__item" data-value="{{ dept.id }}"
+                                    data-name="{{ dept.name }}" onclick="pickDept(this)">
+                                    <span class="custom-dropdown__dot dot-hod"></span> {{ dept.name }}
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="filter-group">
+                        <label class="filter-group__label">From</label>
+                        <input type="date" name="date_from" id="filterDateFrom" class="filter-date-input"
+                            value="{{ date_from }}">
+                    </div>
+                    <div class="filter-group">
+                        <label class="filter-group__label">To</label>
+                        <input type="date" name="date_to" id="filterDateTo" class="filter-date-input"
+                            value="{{ date_to }}">
+                    </div>
+                    <div class="filter-panel__actions">
+                        <button type="submit" class="filter-panel__apply">Apply Filters</button>
+                        <button type="button" class="filter-panel__reset" onclick="resetFilters()">Reset</button>
+                    </div>
+                </div>
+            </div>
+        </form>
+
+        <!-- Bulk Actions -->
+        <div class="bulk-actions" id="bulkActionContainer" style="display:none; gap:8px; padding: 0 0 8px 0;">
+            <button class="btn btn-success btn-sm" onclick="submitBulk('bulk_approve')">✓ Approve Selected</button>
+            <button class="btn btn-danger btn-sm" onclick="submitBulk('bulk_reject')">✕ Reject Selected</button>
+        </div>
+
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th style="width:40px;">
+                            <label class="custom-checkbox">
+                                <input type="checkbox" onclick="toggleAllCheckboxes(this)">
+                                <span class="checkmark"></span>
+                            </label>
+                        </th>
+                        <th>Requester</th>
+                        <th>Department</th>
+                        <th>Item</th>
+                        <th>Qty</th>
+                        <th>Requested On</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for req in page_obj %}
+                    <tr>
+                        <td>
+                            {% if user.role == 'HOD' and req.status == 'Pending' %}
+                            <label class="custom-checkbox">
+                                <input type="checkbox" class="row-check" value="{{ req.id }}">
+                                <span class="checkmark"></span>
+                            </label>
+                            {% elif user.role == 'Principal' and req.status == 'HOD_Approved' %}
+                            <label class="custom-checkbox">
+                                <input type="checkbox" class="row-check" value="{{ req.id }}">
+                                <span class="checkmark"></span>
+                            </label>
+                            {% elif user.role == 'CEO' and req.status == 'Principal_Approved' %}
+                            <label class="custom-checkbox">
+                                <input type="checkbox" class="row-check" value="{{ req.id }}">
+                                <span class="checkmark"></span>
+                            </label>
+                            {% endif %}
+                        </td>
+                        <td>{{ req.user.username }}</td>
+                        <td>{{ req.user.department.name|default:"-" }}</td>
+                        <td>{{ req.item.name }}</td>
+                        <td>{{ req.quantity }}</td>
+                        <td>{{ req.request_date|date:"M d, Y" }}</td>
+                        <td>
+                            {% if req.status == 'Pending' %}
+                            <span class="badge badge-pending">Pending</span>
+                            {% elif req.status == 'Rejected' %}
+                            <span class="badge badge-danger">Rejected</span>
+                            {% else %}
+                            <span class="badge badge-approved">{{ req.get_status_display }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="flex-row-gap">
+                                <a href="{% url 'request_detail' req.id %}" class="btn btn-secondary btn-sm"
+                                    title="View Detail">
+                                    <span class="icon">👁️</span>
+                                </a>
+                                {% if user.role == 'HOD' and req.status == 'Pending' %}
+                                <form action="{% url 'approve_request' req.id %}" method="POST" class="inline-form">
+                                    {% csrf_token %}
+                                    <button name="action" value="approve" class="btn btn-success btn-sm"
+                                        title="Approve">✅</button>
+                                    <button name="action" value="reject" class="btn btn-danger btn-sm"
+                                        title="Reject">❌</button>
+                                </form>
+                                {% elif user.role == 'Principal' and req.status == 'HOD_Approved' %}
+                                <form action="{% url 'approve_request' req.id %}" method="POST" class="inline-form">
+                                    {% csrf_token %}
+                                    <button name="action" value="approve" class="btn btn-success btn-sm"
+                                        title="Approve">✅</button>
+                                    <button name="action" value="reject" class="btn btn-danger btn-sm"
+                                        title="Reject">❌</button>
+                                </form>
+                                {% elif user.role == 'CEO' and req.status == 'Principal_Approved' %}
+                                <form action="{% url 'approve_request' req.id %}" method="POST" class="inline-form">
+                                    {% csrf_token %}
+                                    <button name="action" value="approve" class="btn btn-success btn-sm"
+                                        title="Approve">✅</button>
+                                    <button name="action" value="reject" class="btn btn-danger btn-sm"
+                                        title="Reject">❌</button>
+                                </form>
+                                {% endif %}
+
+                                {% if user.role == 'CEO' and req.status == 'CEO_Approved' %}
+                                <form action="{% url 'issue_request' req.id %}" method="POST" class="inline-form">
+                                    {% csrf_token %}
+                                    <button class="btn btn-primary btn-sm" title="Issue Stock">📦 Issue</button>
+                                </form>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr class="empty-row">
+                        <td colspan="8">No stationery requests found.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% include 'core/pagination.html' with page_obj=page_obj %}
+    </div>
+
+    <!-- ==================== TAB 2: Budget Requests ==================== -->
+    {% if user.role == 'Principal' or user.role == 'CEO' %}
+    <div id="tab-budget" class="tab-panel">
+        <div style="padding-top: 16px;">
+            <div class="table-wrap">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Department</th>
+                            <th>Financial Year</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for budget in budget_requests %}
+                        <tr>
+                            <td>{{ budget.department.name }}</td>
+                            <td>{{ budget.financial_year }}</td>
+                            <td><span class="badge badge-pending">{{ budget.status }}</span></td>
+                            <td>
+                                {% if user.role == 'Principal' and budget.status == 'Pending' %}
+                                <form method="post" action="{% url 'process_budget_request' budget.id %}"
+                                    class="inline-form">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="approve">
+                                    <button type="submit" class="btn btn-success btn-sm" title="Approve">✅</button>
+                                </form>
+                                <form method="post" action="{% url 'process_budget_request' budget.id %}"
+                                    class="inline-form">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="reject">
+                                    <button type="submit" class="btn btn-danger btn-sm" title="Reject">❌</button>
+                                </form>
+                                {% elif user.role == 'CEO' and budget.status == 'Principal_Approved' %}
+                                <form method="post" action="{% url 'process_budget_request' budget.id %}"
+                                    class="inline-form">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="approve">
+                                    <button type="submit" class="btn btn-success btn-sm" title="Approve">✅</button>
+                                </form>
+                                <form method="post" action="{% url 'process_budget_request' budget.id %}"
+                                    class="inline-form">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="reject">
+                                    <button type="submit" class="btn btn-danger btn-sm" title="Reject">❌</button>
+                                </form>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr class="empty-row">
+                            <td colspan="4">No pending budget requests.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Bulk Actions Form -->
+<form id="bulkForm" method="post" action="{% url 'approval_list' %}" style="display: none;">
+    {% csrf_token %}
+    <input type="hidden" name="action" id="bulkAction">
+    <div id="bulkIds"></div>
+</form>
+
+<script>
+    // ====== Tab Switching ======
+    function switchTab(tabId, btn) {
+        document.querySelectorAll('.tab-panel').forEach(function (p) { p.classList.remove('active'); });
+        document.querySelectorAll('.approval-tabs__tab').forEach(function (t) { t.classList.remove('active'); });
+        document.getElementById('tab-' + tabId).classList.add('active');
+        btn.classList.add('active');
+    }
+
+    // ====== Filter Panel Toggle ======
+    function toggleFilterPanel() {
+        document.getElementById('filterPanel').classList.toggle('open');
+        document.getElementById('filterToggle').classList.toggle('active');
+    }
+
+    // ====== Custom Dropdown Logic ======
+    function toggleDD(id) {
+        var allDDs = document.querySelectorAll('.custom-dropdown');
+        allDDs.forEach(function (dd) {
+            if (dd.id !== id) dd.classList.remove('open');
+        });
+        document.getElementById(id).classList.toggle('open');
+    }
+
+    // Close all dropdowns on outside click
+    document.addEventListener('click', function (e) {
+        document.querySelectorAll('.custom-dropdown').forEach(function (dd) {
+            if (!dd.contains(e.target)) dd.classList.remove('open');
+        });
+    });
+
+    var statusLabels = {
+        '': 'All Statuses', 'Pending': 'Pending', 'HOD_Approved': 'HOD Approved',
+        'Principal_Approved': 'Principal Approved', 'CEO_Approved': 'CEO Approved',
+        'Rejected': 'Rejected', 'Issued': 'Issued'
+    };
+
+    function pickStatus(el) {
+        var val = el.getAttribute('data-value');
+        document.getElementById('filterStatus').value = val;
+        document.getElementById('statusLabel').textContent = statusLabels[val] || 'All Statuses';
+        document.getElementById('statusDropdown').classList.remove('open');
+        // Mark active
+        document.querySelectorAll('#statusDropdown .custom-dropdown__item').forEach(function (item) {
+            item.classList.toggle('active', item.getAttribute('data-value') === val);
+        });
+    }
+
+    function pickDept(el) {
+        var val = el.getAttribute('data-value');
+        var name = el.getAttribute('data-name') || 'All Departments';
+        document.getElementById('filterDept').value = val;
+        document.getElementById('deptLabel').textContent = val ? name : 'All Departments';
+        document.getElementById('deptDropdown').classList.remove('open');
+        // Mark active
+        document.querySelectorAll('#deptDropdown .custom-dropdown__item').forEach(function (item) {
+            item.classList.toggle('active', item.getAttribute('data-value') === val);
+        });
+    }
+
+    function resetFilters() {
+        document.getElementById('filterStatus').value = '';
+        document.getElementById('filterDept').value = '';
+        document.getElementById('filterDateFrom').value = '';
+        document.getElementById('filterDateTo').value = '';
+        document.getElementById('statusLabel').textContent = 'All Statuses';
+        document.getElementById('deptLabel').textContent = 'All Departments';
+        document.querySelector('.filter-bar__search input').value = '';
+        document.getElementById('filterForm').submit();
+    }
+
+    // ====== Filter Chips ======
+    function buildChips() {
+        var chips = document.getElementById('filterChips');
+        chips.innerHTML = '';
+        var activeCount = 0;
+
+        var statusVal = document.getElementById('filterStatus').value;
+        if (statusVal) {
+            chips.innerHTML += '<span class="filter-chip"><span class="filter-chip__label">Status:</span> ' +
+                (statusLabels[statusVal] || statusVal) +
+                '<button type="button" class="filter-chip__remove" onclick="removeFilter(\'status\')">x</button></span>';
+            activeCount++;
+        }
+
+        var deptVal = document.getElementById('filterDept').value;
+        if (deptVal) {
+            var deptName = document.getElementById('deptLabel').textContent;
+            chips.innerHTML += '<span class="filter-chip"><span class="filter-chip__label">Dept:</span> ' +
+                deptName +
+                '<button type="button" class="filter-chip__remove" onclick="removeFilter(\'department\')">x</button></span>';
+            activeCount++;
+        }
+
+        var searchVal = document.querySelector('.filter-bar__search input').value;
+        if (searchVal) {
+            chips.innerHTML += '<span class="filter-chip"><span class="filter-chip__label">Search:</span> ' +
+                searchVal +
+                '<button type="button" class="filter-chip__remove" onclick="removeFilter(\'q\')">x</button></span>';
+            activeCount++;
+        }
+
+        var dateFrom = document.getElementById('filterDateFrom').value;
+        if (dateFrom) {
+            chips.innerHTML += '<span class="filter-chip"><span class="filter-chip__label">From:</span> ' +
+                dateFrom +
+                '<button type="button" class="filter-chip__remove" onclick="removeFilter(\'date_from\')">x</button></span>';
+            activeCount++;
+        }
+
+        var dateTo = document.getElementById('filterDateTo').value;
+        if (dateTo) {
+            chips.innerHTML += '<span class="filter-chip"><span class="filter-chip__label">To:</span> ' +
+                dateTo +
+                '<button type="button" class="filter-chip__remove" onclick="removeFilter(\'date_to\')">x</button></span>';
+            activeCount++;
+        }
+
+        if (activeCount > 1) {
+            chips.innerHTML += '<button type="button" class="filter-chips__clear-all" onclick="resetFilters()">Clear All</button>';
+        }
+
+        // Update toggle badge
+        var toggle = document.getElementById('filterToggle');
+        var existingBadge = toggle.querySelector('.filter-count-badge');
+        if (existingBadge) existingBadge.remove();
+        if (activeCount > 0) {
+            toggle.insertAdjacentHTML('beforeend', '<span class="filter-count-badge">' + activeCount + '</span>');
+        }
+    }
+
+    function removeFilter(name) {
+        if (name === 'q') {
+            document.querySelector('.filter-bar__search input').value = '';
+        } else if (name === 'status') {
+            pickStatus(document.querySelector('#statusDropdown .custom-dropdown__item[data-value=""]'));
+        } else if (name === 'department') {
+            pickDept(document.querySelector('#deptDropdown .custom-dropdown__item[data-value=""]'));
+        } else if (name === 'date_from') {
+            document.getElementById('filterDateFrom').value = '';
+        } else if (name === 'date_to') {
+            document.getElementById('filterDateTo').value = '';
+        }
+        document.getElementById('filterForm').submit();
+    }
+
+    // ====== On Page Load ======
+    document.addEventListener('DOMContentLoaded', function () {
+        var statusVal = document.getElementById('filterStatus').value;
+        var deptVal = document.getElementById('filterDept').value;
+        var dateFrom = document.getElementById('filterDateFrom').value;
+        var dateTo = document.getElementById('filterDateTo').value;
+
+        // Set status dropdown label and active state
+        if (statusVal && statusLabels[statusVal]) {
+            document.getElementById('statusLabel').textContent = statusLabels[statusVal];
+            document.querySelectorAll('#statusDropdown .custom-dropdown__item').forEach(function (item) {
+                item.classList.toggle('active', item.getAttribute('data-value') === statusVal);
+            });
+        }
+
+        // Set dept dropdown label and active state
+        if (deptVal) {
+            var deptItem = document.querySelector('#deptDropdown .custom-dropdown__item[data-value="' + deptVal + '"]');
+            if (deptItem) {
+                document.getElementById('deptLabel').textContent = deptItem.getAttribute('data-name') || deptItem.textContent.trim();
+                deptItem.classList.add('active');
+            }
+        }
+
+        // Build chips
+        buildChips();
+
+        // If any filter is active, auto-open the panel
+        if (statusVal || deptVal || dateFrom || dateTo) {
+            document.getElementById('filterPanel').classList.add('open');
+            document.getElementById('filterToggle').classList.add('active');
+        }
+
+        // Checkbox listeners
+        document.querySelectorAll('.row-check').forEach(function (cb) {
+            cb.addEventListener('change', updateBulkActionsVisibility);
+        });
+    });
+
+    // ====== Bulk Actions ======
+    function submitBulk(action) {
+        var checked = document.querySelectorAll('.row-check:checked');
+        if (checked.length === 0) { showUiToast('Please select at least one request.', 'warning'); return; }
+        var form = document.getElementById('bulkForm');
+        document.getElementById('bulkAction').value = action;
+        var container = document.getElementById('bulkIds');
+        container.innerHTML = '';
+        checked.forEach(function (cb) {
+            var input = document.createElement('input');
+            input.type = 'hidden'; input.name = 'request_ids'; input.value = cb.value;
+            container.appendChild(input);
+        });
+        form.submit();
+    }
+
+    function toggleAllCheckboxes(source) {
+        document.querySelectorAll('.row-check').forEach(function (cb) { cb.checked = source.checked; });
+        updateBulkActionsVisibility();
+    }
+
+    function updateBulkActionsVisibility() {
+        var checked = document.querySelectorAll('.row-check:checked');
+        document.getElementById('bulkActionContainer').style.display = checked.length > 0 ? 'flex' : 'none';
+    }
+</script>
+
+{% endblock %}

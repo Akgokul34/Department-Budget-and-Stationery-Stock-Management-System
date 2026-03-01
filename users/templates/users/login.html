@@ -1,0 +1,98 @@
+{% extends 'base.html' %}
+{% block title %}Login - STM-SYS{% endblock %}
+{% block login_content %}
+<div class="login-page">
+
+    <!-- === LEFT: Branding Panel === -->
+    <div class="login-brand">
+        <!-- Particles -->
+        <div class="login-particle"></div>
+        <div class="login-particle"></div>
+        <div class="login-particle"></div>
+        <div class="login-particle"></div>
+        <div class="login-particle"></div>
+        <div class="login-particle"></div>
+        <!-- Glow orb -->
+        <div class="login-brand-orb"></div>
+
+        <div class="login-brand-content">
+            <div class="login-brand-badge">🏛️ Management System</div>
+            <h1>Department Budget & Stationery</h1>
+            <p>A complete management platform for institutional budget tracking, stationery procurement, and multi-level
+                approval workflows.</p>
+
+            <div class="login-features">
+                <div class="login-feature">
+                    <div class="login-feature-icon">📊</div>
+                    <span>Real-time budget tracking & utilization</span>
+                </div>
+                <div class="login-feature">
+                    <div class="login-feature-icon">📦</div>
+                    <span>Automated stock & inventory management</span>
+                </div>
+                <div class="login-feature">
+                    <div class="login-feature-icon">✅</div>
+                    <span>Multi-level approval (HOD → Principal → CEO)</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- === RIGHT: Login Form === -->
+    <div class="login-form-panel">
+        <button class="login-theme-toggle" onclick="toggleTheme()" id="loginThemeBtn" title="Toggle theme">🌙</button>
+
+        <div class="login-card">
+            <div class="login-header">
+                <div class="login-logo-icon">🏛️</div>
+                <h1>Welcome Back</h1>
+                <p>Sign in to your STM-SYS account</p>
+            </div>
+
+            <form method="post">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label for="id_username">Username</label>
+                    <input type="text" name="username" id="id_username" class="form-control"
+                        placeholder="Enter your username" required autofocus>
+                </div>
+
+                <div class="form-group">
+                    <label for="id_password">Password</label>
+                    <div class="password-wrapper">
+                        <input type="password" name="password" id="id_password" class="form-control"
+                            placeholder="Enter your password" required>
+                        <button type="button" class="password-toggle" onclick="togglePasswordVisibility(this)"
+                            title="Show password">👁️‍🗨️</button>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-block">Sign In →</button>
+            </form>
+
+            <div class="login-footer">
+                Secured Access · Management Portal
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Theme toggle for login page
+    function toggleTheme() {
+        var html = document.documentElement;
+        var current = html.getAttribute('data-theme');
+        var next = current === 'dark' ? 'light' : 'dark';
+        html.setAttribute('data-theme', next);
+        localStorage.setItem('msys-theme', next);
+        var btn = document.getElementById('loginThemeBtn');
+        if (btn) btn.textContent = next === 'dark' ? '🌙' : '☀️';
+    }
+    // Set correct icon on load
+    (function () {
+        var theme = document.documentElement.getAttribute('data-theme');
+        var btn = document.getElementById('loginThemeBtn');
+        if (btn) btn.textContent = theme === 'dark' ? '🌙' : '☀️';
+    })();
+</script>
+{% endblock login_content %}

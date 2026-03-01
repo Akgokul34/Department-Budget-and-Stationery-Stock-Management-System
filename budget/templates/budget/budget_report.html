@@ -1,0 +1,334 @@
+{% extends 'base.html' %}
+{% block title %}Budget Report{% endblock %}
+{% block page_title %}Budget Report{% endblock %}
+{% block content %}
+<div id="printableArea">
+
+    <!-- Print Header -->
+    <div class="print-only print-header text-center mb-4">
+        <h1 class="sidebar-logo">INST<span>Institutional Management System</span></h1>
+        <p class="text-muted mt-2">Institution Address Line 1</p>
+        <p class="text-muted">Budget Utilization Report</p>
+        <hr class="mt-3">
+    </div>
+
+    <div class="section-header no-print">
+        <h2>Budget Utilization Report</h2>
+        <div class="section-actions">
+            <a href="{% url 'export_budget_csv' %}" class="btn btn-secondary btn-sm">📥 Download CSV</a>
+            <button onclick="window.print()" class="btn btn-primary btn-sm">🖨️ Print PDF</button>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <form method="get" id="filterForm" class="mb-3 no-print">
+        <div class="filter-bar" style="gap: 15px;">
+            {% if departments|length > 1 %}
+            <div class="filter-group" style="margin: 0; min-width: 180px;">
+                <input type="hidden" name="department" id="filterDept" value="{{ dept_filter }}">
+                <div class="custom-dropdown" id="deptDropdown">
+                    <div class="custom-dropdown__trigger" onclick="toggleDD('deptDropdown')">
+                        <span id="deptLabel">All Departments</span>
+                        <svg class="custom-dropdown__arrow" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd"
+                                d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
+                                clip-rule="evenodd" />
+                        </svg>
+                    </div>
+                    <div class="custom-dropdown__menu">
+                        <div class="custom-dropdown__item" data-value="" data-name="All Departments"
+                            onclick="pickDept(this)">
+                            <span class="custom-dropdown__dot dot-all"></span> All Departments
+                        </div>
+                        {% for dept in departments %}
+                        <div class="custom-dropdown__item" data-value="{{ dept.id }}" data-name="{{ dept.name }}"
+                            onclick="pickDept(this)">
+                            <span class="custom-dropdown__dot dot-approved"></span> {{ dept.name }}
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <div class="filter-group" style="margin: 0; min-width: 150px;">
+                <input type="hidden" name="fy" id="filterFY" value="{{ fy_filter }}">
+                <div class="custom-dropdown" id="fyDropdown">
+                    <div class="custom-dropdown__trigger" onclick="toggleDD('fyDropdown')">
+                        <span id="fyLabel">All Years</span>
+                        <svg class="custom-dropdown__arrow" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd"
+                                d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
+                                clip-rule="evenodd" />
+                        </svg>
+                    </div>
+                    <div class="custom-dropdown__menu">
+                        <div class="custom-dropdown__item" data-value="" data-name="All Years" onclick="pickFY(this)">
+                            <span class="custom-dropdown__dot dot-all"></span> All Years
+                        </div>
+                        {% for y in years %}
+                        <div class="custom-dropdown__item" data-value="{{ y }}" data-name="FY {{ y }}"
+                            onclick="pickFY(this)">
+                            <span class="custom-dropdown__dot dot-approved"></span> FY {{ y }}
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="padding: 8px 20px;">Apply</button>
+            {% if dept_filter or fy_filter %}
+            <button type="button" class="btn btn-secondary" style="padding: 8px 20px;"
+                onclick="resetFilters()">Reset</button>
+            {% endif %}
+        </div>
+    </form>
+
+    {% for budget in budgets %}
+    <div class="card mb-3 report-section">
+        <div class="flex-between mb-3">
+            <div>
+                <h3 class="text-accent dashboard-welcome" style="margin-bottom: 4px;">{{ budget.department.name }}</h3>
+                <span class="text-muted text-sm">FY: {{ budget.financial_year }}</span>
+            </div>
+            <span class="badge badge-{{ budget.status|lower }}">{{ budget.get_status_display }}</span>
+        </div>
+
+        <!-- Stat Cards per Department -->
+        <div class="stat-grid" style="grid-template-columns: repeat(3, 1fr); margin-bottom: 16px;">
+            <div class="stat-card">
+                <div class="stat-icon success">💰</div>
+                <div>
+                    <div class="stat-value text-success">₹{{ budget.total_allocated }}</div>
+                    <div class="stat-label">Total Allocated</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon danger">📉</div>
+                <div>
+                    <div class="stat-value text-danger">₹{{ budget.total_spent }}</div>
+                    <div class="stat-label">Total Spent</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon accent">📊</div>
+                <div>
+                    <div class="stat-value">₹{{ budget.total_remaining }}</div>
+                    <div class="stat-label">Total Remaining</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Category</th>
+                        <th>Allocated</th>
+                        <th>Spent</th>
+                        <th>Remaining</th>
+                        <th>Utilization</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for alloc in budget.allocations.all %}
+                    <tr>
+                        <td class="fw-bold">{{ alloc.category.name }}</td>
+                        <td class="text-success">₹{{ alloc.amount_allocated }}</td>
+                        <td class="text-danger">₹{{ alloc.amount_spent }}</td>
+                        <td
+                            class="{% if alloc.remaining_budget >= 0 %}text-success{% else %}text-danger{% endif %} fw-bold">
+                            ₹{{ alloc.remaining_budget }}</td>
+                        <td class="min-w-120">
+                            {% if alloc.amount_allocated > 0 %}
+                            {% widthratio alloc.amount_spent alloc.amount_allocated 100 as util_pct %}
+                            <div class="progress-bar-wrap">
+                                <div class="progress-bar-fill {% if alloc.amount_spent > alloc.amount_allocated %}danger{% endif %}"
+                                    data-width="{{ util_pct }}">
+                                </div>
+                            </div>
+                            <span class="text-xs text-muted">{{ util_pct }}%</span>
+                            {% else %}
+                            <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr class="empty-row">
+                        <td colspan="5">No sections allocated.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                {% if budget.allocations.all %}
+                <tfoot>
+                    <tr>
+                        <td class="fw-bold">Total</td>
+                        <td class="text-success fw-bold">₹{{ budget.total_allocated }}</td>
+                        <td class="text-danger fw-bold">₹{{ budget.total_spent }}</td>
+                        <td class="fw-bold">₹{{ budget.total_remaining }}</td>
+                        <td></td>
+                    </tr>
+                </tfoot>
+                {% endif %}
+            </table>
+        </div>
+    </div>
+    {% empty %}
+    <div class="card">
+        <p class="text-muted text-center p-4">No budgets found for reporting.</p>
+    </div>
+    {% endfor %}
+
+    <!-- Print Footer -->
+    <div class="print-only text-sm text-center mt-5">
+        <hr>
+        <p>This report is an official record of the budget allocations and expenditures.</p>
+        <div class="flex-between mt-4">
+            <span>HOD Signature: ___________________</span>
+            <span>Principal Signature: ___________________</span>
+        </div>
+        <p class="mt-2 text-xs text-muted">Authorized by: Chairman | Principal</p>
+        <p class="mt-4 text-muted">Generated by STM-SYS on {% now "F d, Y" %}</p>
+    </div>
+</div>
+
+<style>
+    @media print {
+        .no-print {
+            display: none !important;
+        }
+
+        .print-only {
+            display: block !important;
+        }
+
+        body {
+            background: white !important;
+            color: black !important;
+        }
+
+        .main-wrapper {
+            margin-left: 0 !important;
+        }
+
+        .card {
+            background: white !important;
+            border: 1px solid #ddd !important;
+            box-shadow: none !important;
+            backdrop-filter: none !important;
+        }
+
+        .data-table thead th {
+            border-bottom: 2px solid black !important;
+            color: black !important;
+        }
+
+        .data-table tbody tr {
+            border-bottom: 1px solid #eee !important;
+        }
+
+        .data-table tfoot tr {
+            border-top: 2px solid black !important;
+        }
+
+        .text-danger {
+            color: #d00 !important;
+        }
+
+        .text-success {
+            color: #008000 !important;
+        }
+
+        .sidebar-logo span {
+            color: #444 !important;
+        }
+
+        .stat-card {
+            background: white !important;
+            border: 1px solid #ddd !important;
+        }
+
+        .report-stat-grid {
+            gap: 10px !important;
+        }
+
+        .report-section {
+            page-break-inside: avoid;
+        }
+    }
+
+    .print-only {
+        display: none;
+    }
+</style>
+
+<script>
+    function toggleDD(id) {
+        document.querySelectorAll('.custom-dropdown').forEach(function (dd) {
+            if (dd.id !== id) dd.classList.remove('open');
+        });
+        document.getElementById(id).classList.toggle('open');
+    }
+
+    document.addEventListener('click', function (e) {
+        document.querySelectorAll('.custom-dropdown').forEach(function (dd) {
+            if (!dd.contains(e.target)) dd.classList.remove('open');
+        });
+    });
+
+    function pickDept(el) {
+        var val = el.getAttribute('data-value');
+        var name = el.getAttribute('data-name');
+        document.getElementById('filterDept').value = val;
+        document.getElementById('deptLabel').textContent = name;
+        document.getElementById('deptDropdown').classList.remove('open');
+        document.querySelectorAll('#deptDropdown .custom-dropdown__item').forEach(function (item) {
+            item.classList.toggle('active', item === el);
+        });
+    }
+
+    function pickFY(el) {
+        var val = el.getAttribute('data-value');
+        var name = el.getAttribute('data-name');
+        document.getElementById('filterFY').value = val;
+        document.getElementById('fyLabel').textContent = name;
+        document.getElementById('fyDropdown').classList.remove('open');
+        document.querySelectorAll('#fyDropdown .custom-dropdown__item').forEach(function (item) {
+            item.classList.toggle('active', item === el);
+        });
+    }
+
+    function resetFilters() {
+        var deptInput = document.getElementById('filterDept');
+        if (deptInput) deptInput.value = '';
+        document.getElementById('filterFY').value = '';
+        document.getElementById('filterForm').submit();
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        var deptVal = document.getElementById('filterDept');
+        var fyVal = document.getElementById('filterFY').value;
+
+        if (deptVal && deptVal.value) {
+            var deptItem = document.querySelector('#deptDropdown .custom-dropdown__item[data-value="' + deptVal.value + '"]');
+            if (deptItem) {
+                document.getElementById('deptLabel').textContent = deptItem.getAttribute('data-name');
+                deptItem.classList.add('active');
+            }
+        }
+
+        if (fyVal) {
+            var fyItem = document.querySelector('#fyDropdown .custom-dropdown__item[data-value="' + fyVal + '"]');
+            if (fyItem) {
+                document.getElementById('fyLabel').textContent = fyItem.getAttribute('data-name');
+                fyItem.classList.add('active');
+            }
+        }
+
+        // Animate progress bars
+        document.querySelectorAll('.progress-bar-fill').forEach(function (bar) {
+            bar.style.width = bar.dataset.width + '%';
+        });
+    });
+</script>
+{% endblock %}

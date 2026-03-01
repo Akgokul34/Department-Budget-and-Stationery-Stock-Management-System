@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+{% block title %}Restock Item{% endblock %}
+{% block page_title %}Restock Item{% endblock %}
+{% block content %}
+<div class="card card-form-wrapper">
+    <div class="card-title">Adjust Stock Level</div>
+    <div class="card-subtitle">Adjusting stock for: <strong class="text-accent">{{ item.name }}</strong> — Current
+        stock:
+        <strong class="text-success">{{ item.total_stock }}</strong>
+    </div>
+
+    <form method="post">
+        {% csrf_token %}
+        <div class="form-group">
+            <label>Quantity to Add / Subtract</label>
+            <div class="amount-stepper">
+                <button type="button" class="stepper-btn minus" onclick="stepAmount(-1)">−</button>
+                <input type="number" name="quantity" id="quantityInput" class="form-control" value="0" required>
+                <button type="button" class="stepper-btn plus" onclick="stepAmount(1)">+</button>
+            </div>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Save Adjustment</button>
+        <a href="{% url 'inventory_list' %}" class="btn btn-secondary btn-block mt-1 text-center">Cancel</a>
+    </form>
+</div>
+
+<script>
+    function stepAmount(dir) {
+        var input = document.getElementById('quantityInput');
+        var val = parseInt(input.value) || 0;
+        var step = 10;
+        var newVal = val + (dir * step);
+        input.value = newVal;
+    }
+</script>
+{% endblock %}

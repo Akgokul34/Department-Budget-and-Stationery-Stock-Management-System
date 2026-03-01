@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+{% block title %}Log Expense{% endblock %}
+{% block page_title %}Log Expense{% endblock %}
+{% block content %}
+<div class="card card-form-wrapper">
+    <div class="card-title">Record Expense</div>
+    <div class="card-subtitle">
+        Logging for: <strong class="text-accent">{{ alloc.category.name }}</strong>
+        ({{ alloc.department_budget.department.name }})
+    </div>
+
+    <div class="info-box">
+        <span class="text-muted">Remaining Budget</span>
+        <span class="fw-bold text-success">₹{{ alloc.remaining_budget }}</span>
+    </div>
+
+    <form method="post">
+        {% csrf_token %}
+        <div class="form-group">
+            <label>Expense Amount (₹)</label>
+            <div class="amount-stepper">
+                <button type="button" class="stepper-btn minus" onclick="stepAmount(-1)">−</button>
+                <input type="number" step="1" name="amount" id="amountInput" class="form-control" value="0" min="0"
+                    required>
+                <button type="button" class="stepper-btn plus" onclick="stepAmount(1)">+</button>
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Description</label>
+            <input type="text" name="description" class="form-control" placeholder="e.g. Purchase of 5 Office Licenses"
+                required>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Log Expense</button>
+        <a href="{% url 'budget_overview' %}" class="btn btn-secondary btn-block mt-1 text-center">Cancel</a>
+    </form>
+</div>
+
+<script>
+    function stepAmount(dir) {
+        var input = document.getElementById('amountInput');
+        var val = parseFloat(input.value) || 0;
+        var step = 10; // Stepping by 10 for convenience, or 1
+        var newVal = val + (dir * step);
+        if (newVal < 0) newVal = 0;
+
+        // Safety check against remaining budget
+        var remaining = parseFloat("{{ alloc.remaining_budget|default:0 }}") || 0;
+        if (newVal > remaining) {
+            newVal = remaining;
+        }
+
+        input.value = newVal;
+    }
+</script>
+{% endblock %}

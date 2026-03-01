@@ -1,0 +1,464 @@
+{% extends 'base.html' %}
+{% block title %}Inventory{% endblock %}
+{% block page_title %}Stationery Inventory{% endblock %}
+{% block content %}
+<div class="card">
+    <div class="section-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <h2 class="mb-0">Current Stock Levels</h2>
+        {% if user.role != 'Staff' %}
+        <button type="button" class="btn btn-primary" onclick="openAddItemModal()">
+            <span class="icon">➕</span> Add New Item
+        </button>
+        {% endif %}
+    </div>
+
+    <form method="get" id="filterForm" class="mb-3">
+        <div class="filter-bar">
+            <div class="filter-bar__search">
+                <span class="filter-bar__search-icon">🔍</span>
+                <input type="text" name="q" value="{{ query }}" placeholder="Search stock...">
+            </div>
+            <button type="button" class="filter-bar__toggle" id="filterToggle" onclick="toggleFilterPanel()">
+                🎛️ Filters
+            </button>
+        </div>
+
+        <div class="filter-chips" id="filterChips"></div>
+
+        <div class="filter-panel" id="filterPanel">
+            <div class="filter-grid">
+                <div class="filter-group">
+                    <label class="filter-group__label">Stock Level</label>
+                    <input type="hidden" name="stock_level" id="filterStockLevel" value="{{ stock_level }}">
+                    <div class="custom-dropdown" id="stockDropdown">
+                        <div class="custom-dropdown__trigger" onclick="toggleDD('stockDropdown')">
+                            <span id="stockLabel">All Levels</span>
+                            <svg class="custom-dropdown__arrow" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd"
+                                    d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
+                                    clip-rule="evenodd" />
+                            </svg>
+                        </div>
+                        <div class="custom-dropdown__menu">
+                            <div class="custom-dropdown__item" data-value="" data-name="All Levels"
+                                onclick="pickStockLevel(this)">
+                                <span class="custom-dropdown__dot dot-all"></span> All Levels
+                            </div>
+                            <div class="custom-dropdown__item" data-value="Low" data-name="Low Stock"
+                                onclick="pickStockLevel(this)"><span class="custom-dropdown__dot dot-rejected"></span>
+                                Low Stock</div>
+                            <div class="custom-dropdown__item" data-value="Adequate" data-name="Adequate"
+                                onclick="pickStockLevel(this)"><span class="custom-dropdown__dot dot-approved"></span>
+                                Adequate</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="filter-panel__actions">
+                    <button type="submit" class="filter-panel__apply">Apply Filters</button>
+                    <button type="button" class="filter-panel__reset" onclick="resetFilters()">Reset</button>
+                </div>
+            </div>
+        </div>
+    </form>
+
+    <div class="table-wrap">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Item Name</th>
+                    <th>In Stock</th>
+                    <th>Threshold</th>
+                    <th>Status</th>
+                    {% if request.user.role in 'HOD,Principal,CEO' %}
+                    <th style="text-align: right;">Actions</th>
+                    {% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in page_obj %}
+                <tr>
+                    <td class="fw-bold">{{ item.name }}</td>
+                    <td>{{ item.total_stock }}</td>
+                    <td>{{ item.reorder_threshold }}</td>
+                    <td>
+                        {% if item.total_stock <= item.reorder_threshold %} <span class="badge badge-low-stock">Low
+                            Stock</span>
+                            {% else %}
+                            <span class="badge badge-healthy">Adequate</span>
+                            {% endif %}
+                    </td>
+                    {% if request.user.role in 'HOD,Principal,CEO' %}
+                    <td style="text-align: right; display: flex; gap: 4px; justify-content: flex-end;">
+                        <button type="button" class="btn btn-sm btn-outline-primary"
+                            onclick="openEditModal('{{ item.id }}', '{{ item.name|escapejs }}', '{{ item.description|escapejs }}', '{{ item.reorder_threshold }}')">
+                            Edit</button>
+                        <button type="button" class="btn btn-sm btn-secondary"
+                            onclick="openAdjust('{{ item.id }}', '{{ item.name|escapejs }}', '{{ item.total_stock }}')">
+                            Adjust</button>
+                    </td>
+                    {% endif %}
+                </tr>
+                {% empty %}
+                <tr class="empty-row">
+                    <td colspan="5">No items in inventory.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination Include -->
+    {% include 'core/pagination.html' with page_obj=page_obj %}
+</div>
+
+<!-- Adjust Modal -->
+<div class="modal-overlay" id="adjustModal">
+    <div class="modal-card">
+        <div class="modal-header">
+            <div class="modal-title">📦 Adjust Stock Level</div>
+        </div>
+        <div class="modal-body">
+            <p style="margin-bottom: 16px;">
+                Adjusting stock for: <strong class="text-accent" id="adjustItemName"></strong><br>
+                Current stock: <strong class="text-success" id="adjustCurrentStock"></strong>
+            </p>
+            <form method="post" id="adjustForm">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label>Quantity to Add / Subtract</label>
+                    <div class="amount-stepper">
+                        <button type="button" class="stepper-btn minus" onclick="stepAdjust(-1)">−</button>
+                        <input type="number" name="quantity" id="adjustQty" class="form-control" value="0" required
+                            oninput="calculateNewTotal()">
+                        <button type="button" class="stepper-btn plus" onclick="stepAdjust(1)">+</button>
+                    </div>
+                </div>
+            </form>
+            <div id="newTotalDisplay"
+                style="margin-top: 16px; padding: 12px; background: rgba(255,255,255,0.05); border-radius: 8px; display: none; text-align: center;">
+                New Total Stock: <strong id="adjustNewTotal" style="font-size: 1.2rem;">0</strong>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeAdjust()">Cancel</button>
+            <button type="button" class="btn btn-primary" id="saveAdjustBtn" onclick="submitAdjust()">
+                Save Adjustment</button>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Item Modal -->
+<div class="modal-overlay" id="editItemModal">
+    <div class="modal-card">
+        <div class="modal-header">
+            <div class="modal-title">✏️ Edit Stationery Item</div>
+        </div>
+        <div class="modal-body">
+            <form method="post" id="editItemForm">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label>Item Name</label>
+                    <input type="text" name="name" id="editItemName" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label>Description (Optional)</label>
+                    <textarea name="description" id="editItemDesc" class="form-control" rows="2"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Reorder Threshold</label>
+                    <div class="amount-stepper">
+                        <button type="button" class="stepper-btn minus"
+                            onclick="stepEditReorderThreshold(-1)">−</button>
+                        <input type="number" name="reorder_threshold" id="editReorderThreshold" class="form-control"
+                            value="10" min="1">
+                        <button type="button" class="stepper-btn plus" onclick="stepEditReorderThreshold(1)">+</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeEditModal()">Cancel</button>
+            <button type="button" class="btn btn-primary" onclick="document.getElementById('editItemForm').requestSubmit()">
+                Save Changes</button>
+        </div>
+    </div>
+</div>
+
+<!-- Add New Item Modal -->
+<div class="modal-overlay" id="addItemModal">
+    <div class="modal-card">
+        <div class="modal-header">
+            <div class="modal-title">📦 Add New Stationery Item</div>
+        </div>
+        <div class="modal-body">
+            <form method="post" action="{% url 'add_stock_item' %}" id="addItemForm">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label>Item Name</label>
+                    <input type="text" name="name" class="form-control" placeholder="e.g. Glossy Photocopy Paper"
+                        required>
+                </div>
+                <div class="form-group">
+                    <label>Description (Optional)</label>
+                    <textarea name="description" class="form-control" rows="2"
+                        placeholder="e.g. 100 GSM, A4 size"></textarea>
+                </div>
+                <div class="split-layout gap-md" style="margin-top: 0;">
+                    <div class="form-group split-panel-sm">
+                        <label>Initial Stock</label>
+                        <div class="amount-stepper">
+                            <button type="button" class="stepper-btn minus" onclick="stepInitialStock(-1)">−</button>
+                            <input type="number" name="total_stock" id="initialStockInput" class="form-control"
+                                value="0" min="0">
+                            <button type="button" class="stepper-btn plus" onclick="stepInitialStock(1)">+</button>
+                        </div>
+                    </div>
+                    <div class="form-group split-panel-sm">
+                        <label>Reorder Threshold</label>
+                        <div class="amount-stepper">
+                            <button type="button" class="stepper-btn minus"
+                                onclick="stepReorderThreshold(-1)">−</button>
+                            <input type="number" name="reorder_threshold" id="reorderThresholdInput"
+                                class="form-control" value="10" min="1">
+                            <button type="button" class="stepper-btn plus" onclick="stepReorderThreshold(1)">+</button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeAddItemModal()">Cancel</button>
+            <button type="button" class="btn btn-primary" onclick="document.getElementById('addItemForm').requestSubmit()">
+                Create Item</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    function toggleFilterPanel() {
+        document.getElementById('filterPanel').classList.toggle('open');
+        document.getElementById('filterToggle').classList.toggle('active');
+    }
+
+    function toggleDD(id) {
+        document.querySelectorAll('.custom-dropdown').forEach(function (dd) {
+            if (dd.id !== id) dd.classList.remove('open');
+        });
+        document.getElementById(id).classList.toggle('open');
+    }
+
+    document.addEventListener('click', function (e) {
+        document.querySelectorAll('.custom-dropdown').forEach(function (dd) {
+            if (!dd.contains(e.target)) dd.classList.remove('open');
+        });
+    });
+
+    function pickStockLevel(el) {
+        var val = el.getAttribute('data-value');
+        var name = el.getAttribute('data-name');
+        document.getElementById('filterStockLevel').value = val;
+        document.getElementById('stockLabel').textContent = name;
+        document.getElementById('stockDropdown').classList.remove('open');
+        document.querySelectorAll('#stockDropdown .custom-dropdown__item').forEach(function (item) {
+            item.classList.toggle('active', item.getAttribute('data-value') === val);
+        });
+    }
+
+    function resetFilters() {
+        document.getElementById('filterStockLevel').value = '';
+        document.getElementById('stockLabel').textContent = 'All Levels';
+        document.querySelector('.filter-bar__search input').value = '';
+        document.getElementById('filterForm').submit();
+    }
+
+    function buildChips() {
+        var chips = document.getElementById('filterChips');
+        chips.innerHTML = '';
+        var activeCount = 0;
+
+        var stockVal = document.getElementById('filterStockLevel').value;
+        if (stockVal) {
+            var stockName = document.getElementById('stockLabel').textContent;
+            chips.innerHTML += '<span class="filter-chip"><span class="filter-chip__label">Stock:</span> ' +
+                stockName +
+                '<button type="button" class="filter-chip__remove" onclick="removeFilter(\'stock_level\')">×</button></span>';
+            activeCount++;
+        }
+
+        var searchVal = document.querySelector('.filter-bar__search input').value;
+        if (searchVal) {
+            chips.innerHTML += '<span class="filter-chip"><span class="filter-chip__label">Search:</span> ' +
+                searchVal +
+                '<button type="button" class="filter-chip__remove" onclick="removeFilter(\'q\')">×</button></span>';
+            activeCount++;
+        }
+
+        if (activeCount > 1) {
+            chips.innerHTML += '<button type="button" class="filter-chips__clear-all" onclick="resetFilters()">Clear All</button>';
+        }
+
+        var toggle = document.getElementById('filterToggle');
+        var existingBadge = toggle.querySelector('.filter-count-badge');
+        if (existingBadge) existingBadge.remove();
+        if (activeCount > 0) {
+            toggle.insertAdjacentHTML('beforeend', '<span class="filter-count-badge">' + activeCount + '</span>');
+        }
+    }
+
+    function removeFilter(name) {
+        if (name === 'q') {
+            document.querySelector('.filter-bar__search input').value = '';
+        } else if (name === 'stock_level') {
+            pickStockLevel(document.querySelector('#stockDropdown .custom-dropdown__item[data-value=""]'));
+        }
+        document.getElementById('filterForm').submit();
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        var stockVal = document.getElementById('filterStockLevel').value;
+
+        if (stockVal) {
+            var stockItem = document.querySelector('#stockDropdown .custom-dropdown__item[data-value="' + stockVal + '"]');
+            if (stockItem) {
+                document.getElementById('stockLabel').textContent = stockItem.getAttribute('data-name');
+                stockItem.classList.add('active');
+            }
+        }
+
+        buildChips();
+
+        if (stockVal) {
+            document.getElementById('filterPanel').classList.add('open');
+            document.getElementById('filterToggle').classList.add('active');
+        }
+
+        // --- Auto-open Adjust Modal from notification link ---
+        var autoAdjustId = '{{ auto_adjust_item.id|default:"" }}';
+        var autoAdjustName = '{{ auto_adjust_item.name|default:""|escapejs }}';
+        var autoAdjustStock = '{{ auto_adjust_item.total_stock|default:"0" }}';
+        if (autoAdjustId) {
+            openAdjust(autoAdjustId, autoAdjustName, autoAdjustStock);
+        }
+    });
+
+    // --- Adjust Modal ---
+    var currentItemStock = 0;
+
+    function openAdjust(itemId, itemName, currentStock) {
+        currentItemStock = parseInt(currentStock) || 0;
+        document.getElementById('adjustItemName').textContent = itemName;
+        document.getElementById('adjustCurrentStock').textContent = currentStock;
+        document.getElementById('adjustQty').value = 0;
+        document.getElementById('adjustForm').action = '/stock/restock/' + itemId + '/';
+        document.getElementById('newTotalDisplay').style.display = 'none';
+        document.getElementById('adjustModal').classList.add('show');
+    }
+
+    function calculateNewTotal() {
+        var qtyInput = document.getElementById('adjustQty');
+        var adjustVal = parseInt(qtyInput.value) || 0;
+        var newTotal = currentItemStock + adjustVal;
+
+        var display = document.getElementById('newTotalDisplay');
+        var totalEl = document.getElementById('adjustNewTotal');
+        var saveBtn = document.getElementById('saveAdjustBtn');
+
+        display.style.display = 'block';
+        totalEl.textContent = newTotal;
+
+        if (newTotal < 0) {
+            totalEl.style.color = '#ff5555';
+            saveBtn.disabled = true;
+            saveBtn.style.opacity = '0.5';
+        } else {
+            totalEl.style.color = 'var(--accent-color)';
+            saveBtn.disabled = false;
+            saveBtn.style.opacity = '1';
+        }
+    }
+
+    function submitAdjust() {
+        var qtyInput = document.getElementById('adjustQty');
+        var adjustVal = parseInt(qtyInput.value) || 0;
+        if (currentItemStock + adjustVal < 0) {
+            showUiToast('Total stock cannot be negative.', 'error');
+            return;
+        }
+        document.getElementById('adjustForm').requestSubmit();
+    }
+
+    function closeAdjust() {
+        document.getElementById('adjustModal').classList.remove('show');
+    }
+
+    function stepAdjust(dir) {
+        var input = document.getElementById('adjustQty');
+        var val = parseInt(input.value) || 0;
+        var step = 10;
+        input.value = val + (dir * step);
+        calculateNewTotal();
+    }
+
+    // Close modal on overlay click
+    document.getElementById('adjustModal').addEventListener('click', function (e) {
+        if (e.target === this) closeAdjust();
+    });
+
+    // --- Edit Item Modal ---
+    function openEditModal(itemId, name, desc, threshold) {
+        document.getElementById('editItemName').value = name;
+        document.getElementById('editItemDesc').value = desc;
+        document.getElementById('editReorderThreshold').value = threshold;
+        document.getElementById('editItemForm').action = '/stock/item/' + itemId + '/edit/';
+        document.getElementById('editItemModal').classList.add('show');
+    }
+
+    function closeEditModal() {
+        document.getElementById('editItemModal').classList.remove('show');
+    }
+
+    function stepEditReorderThreshold(dir) {
+        var input = document.getElementById('editReorderThreshold');
+        var val = parseInt(input.value) || 0;
+        var newVal = val + (dir * 5);
+        if (newVal < 1) newVal = 1;
+        input.value = newVal;
+    }
+
+    document.getElementById('editItemModal').addEventListener('click', function (e) {
+        if (e.target === this) closeEditModal();
+    });
+
+    // --- Add New Item Modal ---
+    function openAddItemModal() {
+        document.getElementById('addItemForm').reset();
+        document.getElementById('addItemModal').classList.add('show');
+    }
+
+    function closeAddItemModal() {
+        document.getElementById('addItemModal').classList.remove('show');
+    }
+
+    function stepInitialStock(dir) {
+        var input = document.getElementById('initialStockInput');
+        var val = parseInt(input.value) || 0;
+        var newVal = val + (dir * 10);
+        if (newVal < 0) newVal = 0;
+        input.value = newVal;
+    }
+
+    function stepReorderThreshold(dir) {
+        var input = document.getElementById('reorderThresholdInput');
+        var val = parseInt(input.value) || 0;
+        var newVal = val + (dir * 5);
+        if (newVal < 1) newVal = 1;
+        input.value = newVal;
+    }
+
+    // Close modal on overlay click
+    document.getElementById('addItemModal').addEventListener('click', function (e) {
+        if (e.target === this) closeAddItemModal();
+    });
+</script>
+
+{% endblock %}

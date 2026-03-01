@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+{% block title %}Manage Departments{% endblock %}
+{% block page_title %}Manage Departments{% endblock %}
+{% block content %}
+<div class="card">
+    <div class="split-layout">
+        <!-- Create Form -->
+        <div class="split-panel-sm">
+            <h3 class="section-subtitle">Add New Department</h3>
+            <form method="post">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label>Department Name</label>
+                    <input type="text" name="name" required class="form-control" placeholder="e.g. Human Resources">
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">Create Department</button>
+            </form>
+        </div>
+
+        <!-- Department List -->
+        <div class="split-panel-md">
+            <h3 class="section-subtitle">Existing Departments</h3>
+            <div class="table-wrap">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Department Name</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for dept in departments %}
+                        <tr>
+                            <td>{{ dept.name }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr class="empty-row">
+                            <td>No departments created yet.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,391 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}STM-SYS{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    {% block extra_head %}{% endblock %}
+    <script>
+        // Apply saved theme immediately to prevent flash
+        (function () {
+            var t = localStorage.getItem('msys-theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', t);
+        })();
+    </script>
+</head>
+
+<body>
+    <!-- Messages (Toast) -->
+    {% if messages %}
+    <div class="messages-container">
+        {% for message in messages %}
+        <div class="alert {% if message.tags %}{{ message.tags }}{% endif %}" id="msg-{{ forloop.counter }}">
+            <div class="alert-icon">
+                {% if message.tags == 'success' %}✅
+                {% elif message.tags == 'error' or message.tags == 'danger' %}🛑
+                {% elif message.tags == 'warning' %}⚠️
+                {% else %}🔔{% endif %}
+            </div>
+            <div class="alert-content">
+                <span class="alert-title">{{ message.tags|capfirst|default:"Message" }}</span>
+                <p class="alert-message">{{ message }}</p>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if user.is_authenticated %}
+    <!-- Sidebar Overlay (Mobile) -->
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+
+    <div class="app-layout">
+        <!-- === SIDEBAR === -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-logo">
+                    STM-SYS
+                    <span>Management System</span>
+                </div>
+            </div>
+
+            <nav class="sidebar-nav">
+                <div class="sidebar-section-title">Navigation</div>
+                <a href="{% url 'dashboard' %}" class="sidebar-link">
+                    <span class="icon">🏠</span> Dashboard
+                </a>
+
+                {% if user.role == 'Staff' %}
+                <div class="sidebar-section-title">Stationery</div>
+                <a href="{% url 'request_item' %}" class="sidebar-link"><span class="icon">📝</span> Request Items</a>
+                <a href="{% url 'my_requests' %}" class="sidebar-link"><span class="icon">📋</span> My Requests</a>
+                <a href="{% url 'inventory_list' %}" class="sidebar-link"><span class="icon">📦</span> Inventory</a>
+                {% endif %}
+
+                {% if user.role == 'HOD' %}
+                <div class="sidebar-section-title">Budget</div>
+                <a href="{% url 'enter_budget' %}" class="sidebar-link"><span class="icon">💰</span> Enter Budget</a>
+                <a href="{% url 'budget_overview' %}" class="sidebar-link"><span class="icon">📊</span> Budget
+                    Overview</a>
+                <a href="{% url 'transaction_logs' %}" class="sidebar-link"><span class="icon">📒</span> Expense
+                    Logs</a>
+
+                <div class="sidebar-section-title">Approvals</div>
+                <a href="{% url 'approval_list' %}" class="sidebar-link"><span class="icon">✅</span> Approve
+                    Requests</a>
+
+                <div class="sidebar-section-title">Reports</div>
+                <a href="{% url 'budget_report' %}" class="sidebar-link"><span class="icon">📈</span> Budget Report</a>
+                <a href="{% url 'stock_report' %}" class="sidebar-link"><span class="icon">📉</span> Stock Report</a>
+                {% endif %}
+
+                {% if user.role == 'Principal' %}
+                <div class="sidebar-section-title">Overview</div>
+                <a href="{% url 'budget_overview' %}" class="sidebar-link"><span class="icon">📊</span> Budget
+                    Status</a>
+                <a href="{% url 'inventory_list' %}" class="sidebar-link"><span class="icon">📦</span> Stock Levels</a>
+                <a href="{% url 'transaction_logs' %}" class="sidebar-link"><span class="icon">📒</span> Expense
+                    Audit</a>
+
+                <div class="sidebar-section-title">Approvals</div>
+                <a href="{% url 'approval_list' %}" class="sidebar-link"><span class="icon">✅</span> Approve
+                    Requests</a>
+
+                <div class="sidebar-section-title">Reports</div>
+                <a href="{% url 'budget_report' %}" class="sidebar-link"><span class="icon">📈</span> Budget Report</a>
+                <a href="{% url 'stock_report' %}" class="sidebar-link"><span class="icon">📉</span> Stock Report</a>
+                {% endif %}
+
+                {% if user.role == 'CEO' %}
+                <div class="sidebar-section-title">Executive</div>
+                <a href="{% url 'budget_overview' %}" class="sidebar-link"><span class="icon">📊</span> Budget
+                    Overview</a>
+                <a href="{% url 'inventory_list' %}" class="sidebar-link"><span class="icon">📦</span> Stock Status</a>
+                <a href="{% url 'transaction_logs' %}" class="sidebar-link"><span class="icon">📒</span> Audit Logs</a>
+
+                <div class="sidebar-section-title">Approvals</div>
+                <a href="{% url 'approval_list' %}" class="sidebar-link"><span class="icon">✅</span> Approve
+                    Requests</a>
+
+                <div class="sidebar-section-title">Reports</div>
+                <a href="{% url 'budget_report' %}" class="sidebar-link"><span class="icon">📈</span> Budget Report</a>
+                <a href="{% url 'stock_report' %}" class="sidebar-link"><span class="icon">📉</span> Stock Report</a>
+
+                <div class="sidebar-section-title">Administration</div>
+                <a href="{% url 'manage_users' %}" class="sidebar-link"><span class="icon">👤</span> Manage Users</a>
+                <a href="{% url 'manage_departments' %}" class="sidebar-link"><span class="icon">🏢</span> Manage
+                    Depts</a>
+                {% endif %}
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="sidebar-user">
+                    <div class="sidebar-user-avatar">{{ user.username|make_list|first|upper }}</div>
+                    <div class="sidebar-user-info">
+                        <div class="sidebar-user-name">{{ user.username }}</div>
+                        <div class="sidebar-user-role">{{ user.role }}{% if user.department %} · {{ user.department.name
+                            }}{% endif %}</div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- === MAIN WRAPPER === -->
+        <div class="main-wrapper">
+            <!-- Top Bar -->
+            <header class="topbar">
+                <div class="flex-row-gap">
+                    <button class="hamburger" onclick="toggleSidebar()">☰</button>
+                    <span class="topbar-title">{% block page_title %}Dashboard{% endblock %}</span>
+                </div>
+                <div class="topbar-actions">
+                    <!-- Notification Bell -->
+                    <div class="position-relative">
+                        <button class="notif-btn" onclick="toggleNotifDropdown()">
+                            🔔
+                            {% if unread_notifications_count > 0 %}
+                            <span class="notif-badge">{{ unread_notifications_count }}</span>
+                            {% endif %}
+                        </button>
+                        <div class="notif-dropdown" id="notifDropdown">
+                            {% for notif in unread_notifications %}
+                            <div class="notif-item">
+                                <div class="notif-item-icon">
+                                    {% if "Low Stock" in notif.message %}⚠️
+                                    {% elif "OUT OF STOCK" in notif.message or "CRITICAL STOCK" in notif.message %}🛑
+                                    {% elif "approved" in notif.message|lower %}✅
+                                    {% elif "rejected" in notif.message|lower %}❌
+                                    {% else %}🔔{% endif %}
+                                </div>
+                                <div class="notif-item-content">
+                                    {% if notif.action_url %}
+                                    <a href="{{ notif.action_url }}"
+                                        style="text-decoration: none; color: inherit; display: block;">
+                                        <p>{{ notif.message }}</p>
+                                    </a>
+                                    {% else %}
+                                    <p>{{ notif.message }}</p>
+                                    {% endif %}
+                                    <a href="{% url 'mark_notification_read' notif.id %}" class="mark-read">Mark as
+                                        read</a>
+                                </div>
+                            </div>
+                            {% empty %}
+                            <div class="notif-empty">
+                                <div style="font-size: 2rem; margin-bottom: 12px;">✨</div>
+                                No new notifications
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <!-- Theme Toggle -->
+                    <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn" title="Toggle theme">🌙</button>
+
+                    <!-- Logout -->
+                    <form action="{% url 'logout' %}" method="post" class="inline-form" id="logoutForm">
+                        {% csrf_token %}
+                        <button type="button" class="btn btn-danger btn-sm" onclick="openLogoutModal()">Logout</button>
+                    </form>
+                </div>
+            </header>
+
+            <!-- Page Content -->
+            <main class="main-content">
+                {% block content %}{% endblock %}
+            </main>
+        </div>
+    </div>
+
+    <!-- Logout Confirmation Modal -->
+    <div class="modal-overlay" id="logoutModal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <div class="modal-title">Confirm Logout</div>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted">Are you sure you want to log out of your account?</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeLogoutModal()">Cancel</button>
+                <button type="button" class="btn btn-danger" onclick="confirmLogout()">Logout</button>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <!-- Login page — no sidebar -->
+    {% block login_content %}{% endblock %}
+    {% endif %}
+
+    <script>
+        function dismissToast(alert, delayMs) {
+            setTimeout(function () {
+                alert.style.animation = 'toastOut 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards';
+                setTimeout(function () {
+                    alert.remove();
+                }, 500);
+            }, delayMs || 6000);
+        }
+
+        function showUiToast(message, level) {
+            var toastLevel = level || 'error';
+            var container = document.querySelector('.messages-container');
+            if (!container) {
+                container = document.createElement('div');
+                container.className = 'messages-container';
+                document.body.appendChild(container);
+            }
+
+            var icon = '🔔';
+            if (toastLevel === 'success') icon = '✅';
+            else if (toastLevel === 'error' || toastLevel === 'danger') icon = '🛑';
+            else if (toastLevel === 'warning') icon = '⚠️';
+
+            var alert = document.createElement('div');
+            alert.className = 'alert ' + toastLevel;
+            alert.innerHTML =
+                '<div class="alert-icon">' + icon + '</div>' +
+                '<div class="alert-content">' +
+                '<span class="alert-title">' + toastLevel.charAt(0).toUpperCase() + toastLevel.slice(1) + '</span>' +
+                '<p class="alert-message"></p>' +
+                '</div>';
+            alert.querySelector('.alert-message').textContent = message;
+            container.appendChild(alert);
+            dismissToast(alert, 6000);
+        }
+
+        function getFieldLabel(form, field) {
+            if (!field || !field.name) return 'This field';
+            if (field.id) {
+                var label = form.querySelector('label[for="' + field.id + '"]');
+                if (label) return label.textContent.trim();
+            }
+            return field.getAttribute('data-required-label') || field.name.replace(/_/g, ' ');
+        }
+
+        function validateCustomHiddenRequired(form) {
+            var hiddenRequired = form.querySelectorAll('input[type="hidden"][data-required-label]');
+            for (var i = 0; i < hiddenRequired.length; i++) {
+                var field = hiddenRequired[i];
+                if (!String(field.value || '').trim()) {
+                    showUiToast(getFieldLabel(form, field) + ' is required.', 'error');
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        document.addEventListener('submit', function (e) {
+            var form = e.target;
+            if (!form || form.tagName !== 'FORM') return;
+            if ((form.method || '').toLowerCase() !== 'post') return;
+            if (form.hasAttribute('novalidate') || form.hasAttribute('data-skip-ui-validation')) return;
+
+            if (!validateCustomHiddenRequired(form)) {
+                e.preventDefault();
+                return;
+            }
+
+            if (!form.checkValidity()) {
+                e.preventDefault();
+                var invalidField = form.querySelector(':invalid');
+                if (invalidField) {
+                    var msg = invalidField.validationMessage || (getFieldLabel(form, invalidField) + ' is invalid.');
+                    showUiToast(msg, 'error');
+                    if (typeof invalidField.focus === 'function') invalidField.focus();
+                } else {
+                    showUiToast('Please correct the highlighted fields.', 'error');
+                }
+            }
+        }, true);
+
+        function togglePasswordVisibility(btn) {
+            var wrapper = btn.closest('.password-wrapper');
+            if (!wrapper) return;
+            var input = wrapper.querySelector('input');
+            if (!input) return;
+
+            if (input.type === 'password') {
+                input.type = 'text';
+                btn.textContent = '👁️';
+                btn.title = 'Hide password';
+            } else {
+                input.type = 'password';
+                btn.textContent = '👁️‍🗨️';
+                btn.title = 'Show password';
+            }
+        }
+
+        // Theme toggle
+        function toggleTheme() {
+            var html = document.documentElement;
+            var current = html.getAttribute('data-theme');
+            var next = current === 'dark' ? 'light' : 'dark';
+            html.setAttribute('data-theme', next);
+            localStorage.setItem('msys-theme', next);
+            updateThemeIcon(next);
+        }
+
+        function updateThemeIcon(theme) {
+            var btn = document.getElementById('themeBtn');
+            if (btn) btn.textContent = theme === 'dark' ? '🌙' : '☀️';
+        }
+
+        // Apply on load
+        updateThemeIcon(document.documentElement.getAttribute('data-theme'));
+
+        // Notification dropdown
+        function toggleNotifDropdown() {
+            document.getElementById('notifDropdown').classList.toggle('show');
+        }
+
+        // Logout confirmation modal
+        function openLogoutModal() {
+            var modal = document.getElementById('logoutModal');
+            if (modal) modal.classList.add('show');
+        }
+
+        function closeLogoutModal() {
+            var modal = document.getElementById('logoutModal');
+            if (modal) modal.classList.remove('show');
+        }
+
+        function confirmLogout() {
+            var form = document.getElementById('logoutForm');
+            if (form) form.submit();
+        }
+
+        // Sidebar toggle (mobile)
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('open');
+            document.getElementById('sidebarOverlay').classList.toggle('show');
+        }
+
+        // Close dropdowns when clicking outside
+        document.addEventListener('click', function (e) {
+            if (!e.target.closest('.notif-btn') && !e.target.closest('.notif-dropdown')) {
+                var dd = document.getElementById('notifDropdown');
+                if (dd) dd.classList.remove('show');
+            }
+            var logoutModal = document.getElementById('logoutModal');
+            if (logoutModal && e.target === logoutModal) {
+                closeLogoutModal();
+            }
+        });
+
+        // Auto-dismiss toasts with animation
+        document.querySelectorAll('.alert').forEach(function (alert) {
+            dismissToast(alert, 6000);
+        });
+
+        // Apply data-width to progress bars
+        document.querySelectorAll('.progress-bar-fill[data-width]').forEach(function (el) {
+            el.style.width = el.getAttribute('data-width') + '%';
+        });
+    </script>
+</body>
+
+</html>

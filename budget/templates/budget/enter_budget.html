@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% block title %}Enter Budget{% endblock %}
+{% block page_title %}Enter Department Budget{% endblock %}
+{% block content %}
+<div class="card card-form-wrapper">
+    <div class="card-title">Create New Budget</div>
+    <div class="card-subtitle">Define a new budget for your department for a specific financial year.</div>
+
+    <form method="post">
+        {% csrf_token %}
+        <div class="form-group">
+            <label>Financial Year</label>
+            <input type="text" name="financial_year" class="form-control" placeholder="e.g. 2025-2026" required>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Create Budget & Allocate</button>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,188 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard{% endblock %}
+{% block page_title %}Overview Dashboard{% endblock %}
+{% block content %}
+<div class="card mb-3">
+    <h2 class="dashboard-welcome">Welcome back, {{ user.username }} 👋</h2>
+    <p class="text-muted dashboard-role">
+        {% if user.role == 'CEO' %}
+        Chief Executive Officer · Executive Overview
+        {% elif user.role == 'Principal' %}
+        Principal · Institution-Wide Overview
+        {% elif user.role == 'HOD' %}
+        Head of Department · {{ user.department.name|default:"General" }}
+        {% else %}
+        {{ user.department.name|default:"General" }} Department
+        {% endif %}
+    </p>
+</div>
+
+<div class="dash-grid">
+    {% if user.role == 'CEO' %}
+    <!-- CEO Cards -->
+    <a href="{% url 'approval_list' %}" class="dash-card">
+        <div class="dash-card-icon warning">✅</div>
+        <div class="dash-card-body">
+            <h3>Approve / Override</h3>
+            <p>Final approval for stationery & budget requests</p>
+        </div>
+    </a>
+    <a href="{% url 'budget_overview' %}" class="dash-card">
+        <div class="dash-card-icon accent">📊</div>
+        <div class="dash-card-body">
+            <h3>Budget Overview</h3>
+            <p>View & modify all department budgets</p>
+        </div>
+    </a>
+    <a href="{% url 'inventory_list' %}" class="dash-card">
+        <div class="dash-card-icon success">📦</div>
+        <div class="dash-card-body">
+            <h3>Stock Status</h3>
+            <p>Monitor global inventory and restock levels</p>
+        </div>
+    </a>
+    <a href="{% url 'transaction_logs' %}" class="dash-card">
+        <div class="dash-card-icon info">📒</div>
+        <div class="dash-card-body">
+            <h3>Audit Logs</h3>
+            <p>Executive expense audit trail</p>
+        </div>
+    </a>
+    <a href="{% url 'budget_report' %}" class="dash-card">
+        <div class="dash-card-icon info">📈</div>
+        <div class="dash-card-body">
+            <h3>Budget Report</h3>
+            <p>Generate executive budget report</p>
+        </div>
+    </a>
+    <a href="{% url 'stock_report' %}" class="dash-card">
+        <div class="dash-card-icon danger">📉</div>
+        <div class="dash-card-body">
+            <h3>Stock Report</h3>
+            <p>Generate executive stock report</p>
+        </div>
+    </a>
+    <a href="{% url 'manage_users' %}" class="dash-card">
+        <div class="dash-card-icon success">👤</div>
+        <div class="dash-card-body">
+            <h3>Manage Users</h3>
+            <p>Create & view system user accounts</p>
+        </div>
+    </a>
+    <a href="{% url 'manage_departments' %}" class="dash-card">
+        <div class="dash-card-icon accent">🏢</div>
+        <div class="dash-card-body">
+            <h3>Manage Departments</h3>
+            <p>Add new organisational departments</p>
+        </div>
+    </a>
+
+    {% elif user.role == 'Principal' %}
+    <!-- Principal Cards -->
+    <a href="{% url 'approval_list' %}" class="dash-card">
+        <div class="dash-card-icon warning">✅</div>
+        <div class="dash-card-body">
+            <h3>Approve Requests</h3>
+            <p>Review high-level stationery & budget approvals</p>
+        </div>
+    </a>
+    <a href="{% url 'budget_overview' %}" class="dash-card">
+        <div class="dash-card-icon accent">📊</div>
+        <div class="dash-card-body">
+            <h3>Global Budget Status</h3>
+            <p>View all department budgets and allocations</p>
+        </div>
+    </a>
+    <a href="{% url 'inventory_list' %}" class="dash-card">
+        <div class="dash-card-icon success">📦</div>
+        <div class="dash-card-body">
+            <h3>Stock Availability</h3>
+            <p>Monitor global inventory levels</p>
+        </div>
+    </a>
+    <a href="{% url 'transaction_logs' %}" class="dash-card">
+        <div class="dash-card-icon info">📒</div>
+        <div class="dash-card-body">
+            <h3>Expense Audit</h3>
+            <p>Review institution-wide expense logs</p>
+        </div>
+    </a>
+    <a href="{% url 'budget_report' %}" class="dash-card">
+        <div class="dash-card-icon info">📈</div>
+        <div class="dash-card-body">
+            <h3>Budget Report</h3>
+            <p>Generate global budget utilization report</p>
+        </div>
+    </a>
+    <a href="{% url 'stock_report' %}" class="dash-card">
+        <div class="dash-card-icon danger">📉</div>
+        <div class="dash-card-body">
+            <h3>Stock Report</h3>
+            <p>Generate global inventory report</p>
+        </div>
+    </a>
+
+    {% elif user.role == 'HOD' %}
+    <!-- HOD Cards -->
+    <a href="{% url 'enter_budget' %}" class="dash-card">
+        <div class="dash-card-icon accent">💰</div>
+        <div class="dash-card-body">
+            <h3>Enter Budget</h3>
+            <p>Create department budget for a financial year</p>
+        </div>
+    </a>
+    <a href="{% url 'budget_overview' %}" class="dash-card">
+        <div class="dash-card-icon info">📊</div>
+        <div class="dash-card-body">
+            <h3>Budget Overview</h3>
+            <p>View & edit section allocations</p>
+        </div>
+    </a>
+    <a href="{% url 'approval_list' %}" class="dash-card">
+        <div class="dash-card-icon warning">✅</div>
+        <div class="dash-card-body">
+            <h3>Approve Requests</h3>
+            <p>Review pending stationery & budget requests</p>
+        </div>
+    </a>
+    <a href="{% url 'transaction_logs' %}" class="dash-card">
+        <div class="dash-card-icon success">📒</div>
+        <div class="dash-card-body">
+            <h3>Expense Logs</h3>
+            <p>View expense transaction history</p>
+        </div>
+    </a>
+    <a href="{% url 'budget_report' %}" class="dash-card">
+        <div class="dash-card-icon info">📈</div>
+        <div class="dash-card-body">
+            <h3>Budget Report</h3>
+            <p>Generate printable budget utilization report</p>
+        </div>
+    </a>
+    <a href="{% url 'stock_report' %}" class="dash-card">
+        <div class="dash-card-icon danger">📉</div>
+        <div class="dash-card-body">
+            <h3>Stock Report</h3>
+            <p>Generate inventory & consumption report</p>
+        </div>
+    </a>
+
+    {% else %}
+    <!-- Staff Cards -->
+    <a href="{% url 'request_item' %}" class="dash-card">
+        <div class="dash-card-icon info">📝</div>
+        <div class="dash-card-body">
+            <h3>Request Stationery</h3>
+            <p>Submit a new stock request to your HOD</p>
+        </div>
+    </a>
+    <a href="{% url 'my_requests' %}" class="dash-card">
+        <div class="dash-card-icon success">📋</div>
+        <div class="dash-card-body">
+            <h3>My Requests</h3>
+            <p>Check status of your past requests</p>
+        </div>
+    </a>
+    {% endif %}
+</div>
+{% endblock %}
