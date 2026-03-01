@@ -65,8 +65,11 @@ desktop.ini
 *.swp
 *.swo
 
-
+# Local artifacts
 test_out.txt
-*pdf
 
+# Generated documents
+*.pdf
+
+# Local utility script (kept untracked in this repo)
 generate_pdf.py
